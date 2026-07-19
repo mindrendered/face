@@ -411,7 +411,7 @@ export default function CreateSeriesPage() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-10">
         {step > 0 && (
-          <Button variant="ghost" size="icon" onClick={() => setStep(s => s - 1)} className="h-9 w-9 border border-border shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => setStep(s => s - 1)} className="h-9 w-9 border border-border shrink-0" aria-label="Go back">
             <ArrowLeft size={16} />
           </Button>
         )}

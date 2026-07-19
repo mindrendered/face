@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import type { Series } from '@/types/types';
-import { seriesApi } from '@/services/api';
+import { seriesApi, connectionsApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,17 +75,12 @@ function ConnectModal({ platform, onConnected }: { platform: 'instagram' | 'yout
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from('social_credentials').upsert({
-        user_id: user.id,
+      await connectionsApi.upsert({
         platform,
-        app_id: form.app_id || null,
-        access_token: form.access_token || null,
-        refresh_token: form.refresh_token || null,
-        account_name: form.account_name || null,
-        account_username: form.account_username || null,
-        is_active: true,
-      }, { onConflict: 'user_id,platform' });
-      if (error) throw error;
+        account_name: form.account_name || '',
+        account_id: form.account_username || '',
+        is_connected: true,
+      });
       toast.success(`${meta.label} connected successfully`);
       setOpen(false);
       setForm({});
@@ -167,25 +162,30 @@ export default function ConnectionsPage() {
 
   const load = async () => {
     if (!user) return;
-    const [{ data: creds }, s] = await Promise.all([
-      supabase.from('social_credentials').select('id,platform,account_name,account_username,account_id,is_active,created_at').eq('user_id', user.id),
-      seriesApi.list(),
-    ]);
-    setCredentials((creds ?? []) as SocialCredential[]);
-    setSeries(s.filter(x => x.status !== 'archived'));
-    setLoading(false);
+    try {
+      const [{ data: creds }, s] = await Promise.all([
+        supabase.from('social_credentials').select('id,platform,account_name,account_username,account_id,is_active,created_at').eq('user_id', user.id),
+        seriesApi.list(),
+      ]);
+      setCredentials((creds ?? []) as SocialCredential[]);
+      setSeries(s.filter(x => x.status !== 'archived'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load connections');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [user]);
 
   const disconnect = async (id: string) => {
-    await supabase.from('social_credentials').update({ is_active: false }).eq('id', id);
+    await connectionsApi.disconnect(id);
     toast.success('Account disconnected');
     setCredentials(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
   };
 
   const remove = async (id: string) => {
-    await supabase.from('social_credentials').delete().eq('id', id);
+    await connectionsApi.delete(id);
     toast.success('Account removed');
     setCredentials(prev => prev.filter(c => c.id !== id));
   };
@@ -233,7 +233,7 @@ export default function ConnectionsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold">{meta.label}</p>
                     {cred?.is_active
-                      ? <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5 font-semibold">
+                      ? <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5 font-semibold">
                           <CheckCircle2 size={10} />
                           {cred.account_name || cred.account_username || 'Connected'}
                         </p>
@@ -241,7 +241,7 @@ export default function ConnectionsPage() {
                     }
                   </div>
                   {cred?.is_active
-                    ? <Badge className="text-[10px] bg-green-50 text-green-700 border-green-200 font-bold shrink-0">Active</Badge>
+                    ? <Badge className="text-[10px] bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 font-bold shrink-0">Active</Badge>
                     : <ConnectModal platform={platform} onConnected={load} />
                   }
                 </div>
@@ -289,7 +289,7 @@ export default function ConnectionsPage() {
                     <p className="text-xs text-muted-foreground capitalize">{cred.platform}</p>
                   </div>
                   {cred.is_active
-                    ? <Badge className="text-[10px] bg-green-50 text-green-700 border-green-200 font-bold shrink-0 flex items-center gap-1"><CheckCircle2 size={10} />Active</Badge>
+                    ? <Badge className="text-[10px] bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 font-bold shrink-0 flex items-center gap-1"><CheckCircle2 size={10} />Active</Badge>
                     : <Badge variant="secondary" className="text-[10px] shrink-0 flex items-center gap-1"><AlertCircle size={10} />Disconnected</Badge>
                   }
                 </div>

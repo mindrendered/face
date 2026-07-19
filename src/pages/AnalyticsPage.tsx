@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="text-sm text-muted-foreground mt-1">Track your growth and monetization progress.</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 border border-border" onClick={load} disabled={refreshing}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 border border-border" onClick={load} disabled={refreshing} aria-label="Refresh analytics">
           <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
         </Button>
       </div>

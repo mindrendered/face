@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,16 +14,34 @@ serve(async (req: Request): Promise<Response> => {
     return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
   }
 
+  // Verify JWT — reject unauthenticated requests
+  const user = await verifyAuth(req);
+  if (!user) {
+    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   let niche: string, language: string, visualStyle: string, tone: string;
   try {
     const body = await req.json();
-    niche = body.niche || "motivational";
-    language = body.language || "English";
-    visualStyle = body.visual_style || "cinematic";
-    tone = body.tone || "engaging";
+    niche = String(body.niche || "motivational").slice(0, 100);
+    language = String(body.language || "English").slice(0, 50);
+    visualStyle = String(body.visual_style || "cinematic").slice(0, 50);
+    tone = String(body.tone || "engaging").slice(0, 50);
   } catch {
     return new Response(JSON.stringify({ success: false, error: "Invalid request body" }), {
       status: 200, // always 200 so Supabase SDK never throws FunctionsHttpError
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Reject inputs containing prompt-injection patterns
+  const suspectPattern = /ignore (all|previous|above)|system prompt|you are now|disregard/i;
+  if (suspectPattern.test(niche) || suspectPattern.test(language) || suspectPattern.test(visualStyle) || suspectPattern.test(tone)) {
+    return new Response(JSON.stringify({ success: false, error: "Invalid input" }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

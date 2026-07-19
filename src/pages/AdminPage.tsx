@@ -118,7 +118,10 @@ export default function AdminPage() {
   };
 
   const toggleAdmin = async (userId: string, current: boolean) => {
-    const { error } = await supabase.from('profiles').update({ is_admin: !current }).eq('id', userId);
+    const { error } = await supabase.rpc('toggle_user_admin', {
+      target_user_id: userId,
+      new_admin_status: !current,
+    });
     if (error) { toast.error('Update failed'); return; }
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_admin: !current } : u));
     toast.success(`Admin ${!current ? 'granted' : 'revoked'}`);
@@ -263,7 +266,7 @@ export default function AdminPage() {
               </div>
               Users <Badge className="ml-1 text-[10px] gradient-bg border-0 text-white font-bold">{users.length}</Badge>
             </CardTitle>
-            <Button variant="ghost" size="icon" className="h-8 w-8 border border-border" onClick={loadUsers}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 border border-border" onClick={loadUsers} aria-label="Refresh users">
               <RefreshCw size={13} />
             </Button>
           </div>

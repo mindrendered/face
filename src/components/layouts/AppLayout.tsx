@@ -134,7 +134,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Mobile hamburger */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-8 w-8">
+              <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-8 w-8" aria-label="Open menu">
                 <Menu size={16} />
               </Button>
             </SheetTrigger>
@@ -164,12 +164,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               variant="ghost" size="icon"
               onClick={() => navigate('/dashboard')}
               className="relative h-8 w-8"
+              aria-label="Notifications"
             >
               <Bell size={15} />
             </Button>
             {profile && (
-              <div className="w-7 h-7 rounded-full gradient-bg flex items-center justify-center text-xs font-bold text-white cursor-pointer"
-                onClick={() => navigate('/settings')}>
+              <div
+                className="w-7 h-7 rounded-full gradient-bg flex items-center justify-center text-xs font-bold text-white cursor-pointer"
+                onClick={() => navigate('/settings')}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/settings'); }}
+                role="button"
+                tabIndex={0}
+                aria-label="Go to settings"
+              >
                 {((profile.full_name || profile.email || 'U')[0]).toUpperCase()}
               </div>
             )}

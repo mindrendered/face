@@ -15,9 +15,9 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIMES = ['06:00','07:00','08:00','09:00','10:00','12:00','15:00','18:00','20:00','21:00','22:00'];
 const STATUS_COLORS: Record<string, string> = {
   pending:  'bg-primary/10 text-primary',
-  posting:  'bg-yellow-100 text-yellow-700',
-  posted:   'bg-green-100 text-green-700',
-  failed:   'bg-red-100 text-red-600',
+  posting:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
+  posted:   'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+  failed:   'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400',
   cancelled:'bg-muted text-muted-foreground',
 };
 const PLATFORM_ICONS: Record<string, React.ReactNode> = {
@@ -63,6 +63,8 @@ export default function SchedulePage() {
         const [s, p] = await Promise.all([seriesApi.list(), scheduledPostsApi.list(30)]);
         setSeries(s.filter(x => x.status !== 'archived'));
         setPosts(p);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to load schedule data');
       } finally {
         setLoading(false);
       }

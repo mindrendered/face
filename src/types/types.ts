@@ -5,6 +5,7 @@ export interface Profile {
   avatar_url: string | null;
   plan: 'beginner' | 'daily' | 'pro';
   videos_generated_count: number;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 }

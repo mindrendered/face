@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { seriesApi } from '@/services/api';
@@ -16,6 +16,8 @@ import {
   Clock, CheckCircle2, AlertCircle, Info, FolderOpen, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useVideoGeneration } from '@/hooks/use-video-generation';
+import { useImageGeneration } from '@/hooks/use-image-generation';
 
 // ── Prompt presets — cinematic, trendy, Shorts-optimised ─────────────────────
 export const VIDEO_PRESETS = [
@@ -194,170 +196,16 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
     }
   };
 
-  // ── Video state ──────────────────────────────────────────────────────────
-  const [videoPrompt, setVideoPrompt] = useState('');
-  const [videoAspect, setVideoAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
-  const [videoDuration, setVideoDuration] = useState<'5' | '10'>('5');
-  const [videoTaskId, setVideoTaskId] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<'idle' | 'submitting' | 'polling' | 'done' | 'failed'>('idle');
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [videoStage, setVideoStage] = useState('');
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const videoStartRef = useRef<number>(0);
+  // ── Generation hooks ──────────────────────────────────────────────────────
+  const video = useVideoGeneration({
+    onSave: (url) => saveToSeries(url, 'video', `AI Video — ${new Date().toLocaleDateString()}`),
+  });
+  const image = useImageGeneration({
+    onSave: (url) => saveToSeries(url, 'image', `AI Image — ${new Date().toLocaleDateString()}`),
+  });
 
-  // ── Image state ──────────────────────────────────────────────────────────
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [imageTaskId, setImageTaskId] = useState<string | null>(null);
-  const [imageStatus, setImageStatus] = useState<'idle' | 'submitting' | 'polling' | 'done' | 'failed'>('idle');
-  const [imageProgress, setImageProgress] = useState(0);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const imagePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const imageStartRef = useRef<number>(0);
-
-  // ── Video generation ─────────────────────────────────────────────────────
-  const submitVideo = async () => {
-    if (!videoPrompt.trim()) return;
-    setVideoStatus('submitting');
-    setVideoProgress(5);
-    setVideoStage('Submitting task…');
-    setVideoUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('kling-omni-video-submit', {
-        body: { prompt: videoPrompt.trim(), aspect_ratio: videoAspect, duration: videoDuration },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.success === false) throw new Error(data?.error || 'Submit failed');
-      if (data?.code !== 0) throw new Error(`API error: ${data?.message}`);
-
-      const taskId: string = data.data.task_id;
-      setVideoTaskId(taskId);
-      setVideoStatus('polling');
-      setVideoStage('Generating video…');
-      setVideoProgress(10);
-      videoStartRef.current = Date.now();
-
-      videoPollRef.current = setInterval(async () => {
-        try {
-          const { data: qd, error: qe } = await supabase.functions.invoke('kling-omni-video-query', {
-            body: { task_id: taskId },
-          });
-          if (qe) return;
-          if (qd?.success === false) return; // transient error — retry next cycle
-
-          const s: string = qd?.data?.task_status;
-          const elapsed = (Date.now() - videoStartRef.current) / 1000;
-          const est = Math.min(88, Math.round((elapsed / 420) * 88));
-
-          if (s === 'succeed') {
-            clearInterval(videoPollRef.current!);
-            const url: string | null = qd.data.task_result?.videos?.[0]?.url ?? null;
-            setVideoUrl(url);
-            setVideoStatus('done');
-            setVideoProgress(100);
-            setVideoStage('Complete');
-            if (url) await saveToSeries(url, 'video', `AI Video — ${new Date().toLocaleDateString()}`);
-            else toast.success('Video generated successfully!');
-          } else if (s === 'failed') {
-            clearInterval(videoPollRef.current!);
-            setVideoStatus('failed');
-            setVideoStage('Generation failed');
-            toast.error('Video generation failed');
-          } else {
-            setVideoProgress(est);
-            setVideoStage(s === 'processing' ? 'Rendering frames…' : 'Queued…');
-          }
-        } catch { /* skip cycle on transient network error */ }
-      }, 10000);
-    } catch (e: unknown) {
-      setVideoStatus('failed');
-      setVideoStage('Submission error');
-      toast.error(e instanceof Error ? e.message : 'Submit failed');
-    }
-  };
-
-  const resetVideo = () => {
-    if (videoPollRef.current) clearInterval(videoPollRef.current);
-    setVideoStatus('idle');
-    setVideoProgress(0);
-    setVideoStage('');
-    setVideoTaskId(null);
-    setVideoUrl(null);
-    setVideoPrompt('');
-  };
-
-  // ── Image generation ─────────────────────────────────────────────────────
-  const submitImage = async () => {
-    if (!imagePrompt.trim()) return;
-    setImageStatus('submitting');
-    setImageProgress(5);
-    setImageUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('image-generation-submit', {
-        body: { contents: [{ parts: [{ text: imagePrompt.trim() }] }] },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.success === false) throw new Error(data?.error || 'Submit failed');
-      if (data?.status !== 0) throw new Error(`API error: ${data?.message}`);
-
-      const taskId: string = data.data.taskId;
-      setImageTaskId(taskId);
-      setImageStatus('polling');
-      setImageProgress(15);
-      imageStartRef.current = Date.now();
-
-      imagePollRef.current = setInterval(async () => {
-        try {
-          const { data: qd, error: qe } = await supabase.functions.invoke('image-generation-query', {
-            body: { taskId },
-          });
-          if (qe) return;
-          if (qd?.success === false) return;
-
-          const s: string = qd?.data?.status;
-          const elapsed = (Date.now() - imageStartRef.current) / 1000;
-          const est = Math.min(88, Math.round((elapsed / 120) * 88));
-
-          if (s === 'SUCCESS') {
-            clearInterval(imagePollRef.current!);
-            const url: string | null = qd.data.imageUrl ?? null;
-            setImageUrl(url);
-            setImageStatus('done');
-            setImageProgress(100);
-            if (url) await saveToSeries(url, 'image', `AI Image — ${new Date().toLocaleDateString()}`);
-            else toast.success('Image generated successfully!');
-          } else if (s === 'FAILED' || s === 'TIMEOUT') {
-            clearInterval(imagePollRef.current!);
-            setImageStatus('failed');
-            toast.error(`Image generation ${s === 'TIMEOUT' ? 'timed out' : 'failed'}`);
-          } else {
-            setImageProgress(est);
-          }
-        } catch { /* skip */ }
-      }, 7000);
-    } catch (e: unknown) {
-      setImageStatus('failed');
-      toast.error(e instanceof Error ? e.message : 'Submit failed');
-    }
-  };
-
-  const resetImage = () => {
-    if (imagePollRef.current) clearInterval(imagePollRef.current);
-    setImageStatus('idle');
-    setImageProgress(0);
-    setImageTaskId(null);
-    setImageUrl(null);
-    setImagePrompt('');
-  };
-
-  // cleanup on unmount
-  useEffect(() => () => {
-    if (videoPollRef.current) clearInterval(videoPollRef.current);
-    if (imagePollRef.current) clearInterval(imagePollRef.current);
-  }, []);
-
-  const videoActive = videoStatus === 'submitting' || videoStatus === 'polling';
-  const imageActive = imageStatus === 'submitting' || imageStatus === 'polling';
+  const videoActive = video.status === 'submitting' || video.status === 'polling';
+  const imageActive = image.status === 'submitting' || image.status === 'polling';
 
   const content = (
     <div className="space-y-4">
@@ -405,15 +253,15 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
       <TabsContent value="video" className="space-y-4 mt-0">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick prompts</Label>
-          <PresetChips presets={VIDEO_PRESETS} onSelect={setVideoPrompt} disabled={videoActive} />
+          <PresetChips presets={VIDEO_PRESETS} onSelect={video.setPrompt} disabled={videoActive} />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prompt</Label>
           <Textarea
             placeholder="Describe the video you want to generate…"
-            value={videoPrompt}
-            onChange={e => setVideoPrompt(e.target.value)}
+            value={video.prompt}
+            onChange={e => video.setPrompt(e.target.value)}
             className="text-sm min-h-[96px] px-3 resize-none"
             disabled={videoActive}
           />
@@ -422,7 +270,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Aspect ratio</Label>
-            <Select value={videoAspect} onValueChange={v => setVideoAspect(v as typeof videoAspect)} disabled={videoActive}>
+            <Select value={video.aspectRatio} onValueChange={v => video.setAspectRatio(v as typeof video.aspectRatio)} disabled={videoActive}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="9:16">9:16 — Reels / Shorts</SelectItem>
@@ -433,7 +281,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Duration</Label>
-            <Select value={videoDuration} onValueChange={v => setVideoDuration(v as typeof videoDuration)} disabled={videoActive}>
+            <Select value={video.duration} onValueChange={v => video.setDuration(v as typeof video.duration)} disabled={videoActive}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="5">5 seconds</SelectItem>
@@ -444,7 +292,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         </div>
 
         {/* Time estimate notice */}
-        {videoStatus === 'idle' && (
+        {video.status === 'idle' && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
             <Clock size={12} className="text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -454,36 +302,36 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         )}
 
         {/* Progress */}
-        {(videoActive || videoStatus === 'done' || videoStatus === 'failed') && (
+        {(videoActive || video.status === 'done' || video.status === 'failed') && (
           <ProgressCard
-            stage={videoStage}
-            progress={videoProgress}
-            taskId={videoTaskId}
-            status={videoStatus as 'submitting' | 'polling' | 'done' | 'failed'}
+            stage={video.stage}
+            progress={video.progress}
+            taskId={video.taskId}
+            status={video.status as 'submitting' | 'polling' | 'done' | 'failed'}
           />
         )}
 
         {/* Video result */}
-        {videoStatus === 'done' && videoUrl && (
+        {video.status === 'done' && video.url && (
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border">
-              <video src={videoUrl} controls className="w-full h-full" />
+              <video src={video.url} controls className="w-full h-full" />
             </div>
-            <ResultActions url={videoUrl} type="video" onClear={resetVideo} />
+            <ResultActions url={video.url} type="video" onClear={video.reset} />
           </div>
         )}
 
-        {videoStatus === 'failed' && (
-          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={resetVideo}>
+        {video.status === 'failed' && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={video.reset}>
             <X size={12} />Clear &amp; try again
           </Button>
         )}
 
         {/* Generate / loading button */}
-        {!videoActive && videoStatus !== 'done' && (
+        {!videoActive && video.status !== 'done' && (
           <Button
-            onClick={submitVideo}
-            disabled={!videoPrompt.trim()}
+            onClick={video.submit}
+            disabled={!video.prompt.trim()}
             size="sm"
             className="w-full h-10 text-xs gap-1.5 gradient-bg border-0 text-white font-semibold"
           >
@@ -501,22 +349,22 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
       <TabsContent value="image" className="space-y-4 mt-0">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick prompts</Label>
-          <PresetChips presets={IMAGE_PRESETS} onSelect={setImagePrompt} disabled={imageActive} />
+          <PresetChips presets={IMAGE_PRESETS} onSelect={image.setPrompt} disabled={imageActive} />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prompt</Label>
           <Textarea
             placeholder="Describe the image you want to generate…"
-            value={imagePrompt}
-            onChange={e => setImagePrompt(e.target.value)}
+            value={image.prompt}
+            onChange={e => image.setPrompt(e.target.value)}
             className="text-sm min-h-[96px] px-3 resize-none"
             disabled={imageActive}
           />
         </div>
 
         {/* Time estimate notice */}
-        {imageStatus === 'idle' && (
+        {image.status === 'idle' && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
             <Info size={12} className="text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -526,35 +374,35 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         )}
 
         {/* Progress */}
-        {(imageActive || imageStatus === 'done' || imageStatus === 'failed') && (
+        {(imageActive || image.status === 'done' || image.status === 'failed') && (
           <ProgressCard
-            stage={imageStatus === 'done' ? 'Complete' : imageStatus === 'failed' ? 'Generation failed' : 'Generating image…'}
-            progress={imageProgress}
-            taskId={imageTaskId}
-            status={imageStatus as 'submitting' | 'polling' | 'done' | 'failed'}
+            stage={image.status === 'done' ? 'Complete' : image.status === 'failed' ? 'Generation failed' : 'Generating image…'}
+            progress={image.progress}
+            taskId={image.taskId}
+            status={image.status as 'submitting' | 'polling' | 'done' | 'failed'}
           />
         )}
 
         {/* Image result */}
-        {imageStatus === 'done' && imageUrl && (
+        {image.status === 'done' && image.url && (
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden border border-border bg-muted/30">
-              <img src={imageUrl} alt="Generated" className="w-full h-auto object-contain max-h-72" />
+              <img src={image.url} alt="Generated" className="w-full h-auto object-contain max-h-72" />
             </div>
-            <ResultActions url={imageUrl} type="image" onClear={resetImage} />
+            <ResultActions url={image.url} type="image" onClear={image.reset} />
           </div>
         )}
 
-        {imageStatus === 'failed' && (
-          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={resetImage}>
+        {image.status === 'failed' && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={image.reset}>
             <X size={12} />Clear &amp; try again
           </Button>
         )}
 
-        {!imageActive && imageStatus !== 'done' && (
+        {!imageActive && image.status !== 'done' && (
           <Button
-            onClick={submitImage}
-            disabled={!imagePrompt.trim()}
+            onClick={image.submit}
+            disabled={!image.prompt.trim()}
             size="sm"
             className="w-full h-10 text-xs gap-1.5 gradient-bg border-0 text-white font-semibold"
           >

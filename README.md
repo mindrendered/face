@@ -1,0 +1,233 @@
+# AI-Powered Faceless Video Automation Platform
+
+A React + Supabase web application for solo creators to generate, schedule, and manage faceless Instagram Reels and YouTube Shorts at scale.
+
+---
+
+## Table of Contents
+
+1. [Features](#features)
+2. [Tech Stack](#tech-stack)
+3. [Project Structure](#project-structure)
+4. [Getting Started](#getting-started)
+5. [Environment Variables](#environment-variables)
+6. [Available Scripts](#available-scripts)
+7. [Database Migrations](#database-migrations)
+8. [Edge Functions](#edge-functions)
+9. [Development Guidelines](#development-guidelines)
+10. [Deployment Notes](#deployment-notes)
+11. [Additional Documentation](#additional-documentation)
+
+---
+
+## Features
+
+- **Series creation wizard**: choose niche, language, visual style, voice, music, captions, and posting schedule.
+- **AI script generation**: hook → value → CTA scripts optimised for 60–90 second Shorts.
+- **AI video generation**: submit cinematic prompts to Kling AI and track progress in real time.
+- **AI image generation**: create thumbnails, covers, banners, and backgrounds from presets or custom prompts.
+- **AI Studio**: ad-hoc video/image generator with optional save to an existing series.
+- **Scheduling**: per-series frequency, post time, posting days, and 30-day calendar view.
+- **Social connections**: link Instagram and YouTube accounts for future auto-posting.
+- **Analytics dashboard**: track generated videos, ready posts, scheduled posts, and connected accounts.
+- **Admin settings**: manage platform plans, pricing, and maintenance mode.
+- **Language enforcement**: generated scripts and captions respect the series language (English, Malayalam, and more).
+- **Video deletion**: remove unwanted generated videos from the series detail view with confirmation.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend framework | React 18 + TypeScript |
+| Build tool | Vite (`rolldown-vite`) |
+| Routing | React Router v7 |
+| Styling | Tailwind CSS 3.4 |
+| UI components | shadcn/ui + Radix UI primitives |
+| State / context | React hooks + `GenerationContext` |
+| Backend-as-a-service | Supabase (Auth, Postgres, Storage, Edge Functions) |
+| AI video | Kling AI Omni Video |
+| AI images | Image generation gateway |
+| AI scripts | Gemini LLM gateway |
+| Linting | Biome + custom checks |
+
+---
+
+## Project Structure
+
+```
+├── README.md                      # This file
+├── package.json                   # Dependencies and scripts
+├── index.html                     # Vite entry HTML
+├── postcss.config.js              # PostCSS configuration
+├── tailwind.config.js             # Tailwind theme and design tokens
+├── tsconfig*.json                 # TypeScript configurations
+├── vite.config.ts                # Vite build configuration
+├── public/                       # Static assets
+├── src/                          # Frontend source
+│   ├── App.tsx                   # Root component
+│   ├── main.tsx                  # Application bootstrap
+│   ├── routes.tsx                # Route definitions
+│   ├── index.css                 # Global styles
+│   ├── components/               # React components
+│   │   ├── AIStudio.tsx          # Ad-hoc video/image generation
+│   │   ├── ui/                   # shadcn/ui components
+│   │   ├── common/               # Shared common components
+│   │   └── layouts/              # App layout + protected route
+│   ├── contexts/                 # AuthContext, GenerationContext
+│   ├── db/                       # Supabase client setup
+│   ├── hooks/                    # Custom React hooks
+│   ├── lib/                      # Utility helpers
+│   ├── pages/                    # Top-level route pages
+│   ├── services/                 # API wrappers (Supabase tables + Edge Functions)
+│   └── types/                    # TypeScript types
+├── supabase/                     # Supabase configuration
+│   ├── functions/                # Edge Functions
+│   │   ├── generate-script/      # LLM script + prompt generation
+│   │   ├── kling-omni-video-submit/
+│   │   ├── kling-omni-video-query/
+│   │   ├── image-generation-submit/
+│   │   ├── image-generation-query/
+│   │   └── large-language-model/
+│   └── migrations/               # Database migrations
+└── tasks/                        # Supporting documentation outputs
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js ≥ 20
+- npm ≥ 10
+- A Supabase project
+- Miaoda platform environment (provides AI gateway keys automatically)
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Configure Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_APP_ID=your-app-id
+```
+
+> The AI gateway API key (`INTEGRATIONS_API_KEY`) is injected by the Miaoda platform into Supabase Edge Functions; do **not** expose it in the frontend.
+
+### Run the Development Server
+
+```bash
+npx vite --host 127.0.0.1
+```
+
+Then open `http://localhost:5173` in your browser.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anonymous public API key |
+| `VITE_APP_ID` | Yes | Application identifier used by the platform |
+| `INTEGRATIONS_API_KEY` | Yes (server-side) | AI gateway key, injected into Edge Functions by the platform |
+
+---
+
+## Available Scripts
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| Lint | `npm run lint` | Type-check, run Biome, validate Tailwind, and run build smoke tests |
+| Dev | `npx vite --host 127.0.0.1` | Start local dev server |
+
+> The `dev` and `build` npm scripts are intentionally stubbed; use Vite directly for local development.
+
+---
+
+## Database Migrations
+
+Migrations live in `supabase/migrations/` and should be applied to your Supabase project in order:
+
+1. `00001_initial_schema.sql` — profiles, series, videos, social connections, analytics, scheduled posts, notifications.
+2. `00002_storage_bucket.sql` — `generated-media` public bucket with RLS policies.
+3. `00003_fix_profiles_trigger_rls.sql` — secure `handle_new_user()` trigger function.
+4. `00004_add_admin_platform_settings.sql` — admin flag, platform settings, social credentials.
+
+Apply via the Supabase CLI or the dashboard SQL editor.
+
+---
+
+## Edge Functions
+
+Deploy each function from the `supabase/functions/` directory:
+
+```bash
+supabase functions deploy generate-script
+supabase functions deploy kling-omni-video-submit
+supabase functions deploy kling-omni-video-query
+supabase functions deploy image-generation-submit
+supabase functions deploy image-generation-query
+supabase functions deploy large-language-model
+```
+
+All functions expect `INTEGRATIONS_API_KEY` to be available in the Supabase environment and return JSON with a top-level `success` field so the frontend Supabase SDK never throws `FunctionsHttpError` for business-logic errors.
+
+### Key Function Details
+
+- `generate-script`: Enforces the selected language for all script text and captions. The `video_prompt` is always written in English for the Kling AI model, with a note to render Malayalam on-screen text when applicable.
+- `kling-omni-video-submit`: Enriches prompts with cinematic quality directives and clamps duration to `5` or `10` seconds.
+- `kling-omni-video-query`: Polls Kling task status and returns the result video URL.
+- `image-generation-submit` / `image-generation-query`: Submit and poll image generation tasks.
+
+---
+
+## Development Guidelines
+
+- Use **absolute imports** from `@/` aliases (e.g., `@/components/ui/button`).
+- Keep components small and single-responsibility.
+- Place reusable UI components in `src/components/ui/`.
+- Place page-level components in `src/pages/`.
+- Use `src/services/api.ts` for all Supabase table operations.
+- Use `src/services/generation.ts` for all Edge Function calls.
+- Run `npm run lint` before committing; zero errors is required.
+- Do **not** expose `INTEGRATIONS_API_KEY` in frontend code.
+- Maintain English for code comments and UI text.
+
+---
+
+## Deployment Notes
+
+- The frontend is built with Vite and served as a static SPA.
+- Supabase Auth handles sessions; protect routes with `ProtectedRoute`.
+- Edge Functions must be deployed for AI generation features to work.
+- Supabase Storage bucket `generated-media` must be created with public read access.
+- Row Level Security (RLS) is enabled on all tables; verify policies before production.
+- Auto-posting requires additional platform/OAuth integration beyond the current scheduling UI.
+
+---
+
+## Additional Documentation
+
+For more detailed reference, see the supporting documents in `tasks/`:
+
+- `tasks/PROJECT_SUMMARY.md` — high-level project overview, architecture, and recent changes.
+- `tasks/SOP.md` — step-by-step operating procedures for common workflows.
+- `tasks/ER_DIAGRAM.md` — entity-relationship diagram and database table reference.
+- `tasks/SITE_MAP_DATA_FLOW.md` — site map, architecture, and sequence diagrams.
+
+---
+
+## License
+
+Internal / proprietary — built on the Miaoda platform.

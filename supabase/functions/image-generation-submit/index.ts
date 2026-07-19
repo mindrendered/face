@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,10 @@ const err = (message: string) =>
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return err("Method not allowed");
+
+  // Verify JWT — reject unauthenticated requests
+  const user = await verifyAuth(req);
+  if (!user) return err("Unauthorized");
 
   let contents: unknown;
   try {
