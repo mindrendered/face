@@ -1,0 +1,53 @@
+---
+id: radix-trigger-formcontrol-nesting
+language: tsx
+files:
+  - src/**/*.tsx
+message: |
+  ❌ Dangerous slot nesting detected: FormControl wrapped inside Radix UI Trigger (asChild).
+
+  Problematic code:
+  <PopoverTrigger asChild>
+    <FormControl>      ← Causes the click event to fail
+      <Button>...</Button>
+    </FormControl>
+  </PopoverTrigger>
+
+ Correct approach:
+  <PopoverTrigger asChild>
+    <Button>...</Button>   ← Use Button directly
+  </PopoverTrigger>
+
+  Reason: Both FormControl and Trigger utilize the Radix UI Slot mechanism; nesting them results in:
+  - A broken ref forwarding chain
+  - Lost click events
+  - Inability to interact with internal components
+
+  FormControl should only be used for native form controls (Input, Textarea, Select); do not use it for trigger buttons.
+severity: error
+rule:
+  kind: jsx_element
+  all:
+    # Conditions for opening tags
+    - has:
+        kind: jsx_opening_element
+        all:
+          # Matches all Radix UI Trigger components
+          - has:
+              field: name
+              regex: "^(Popover|Dialog|DropdownMenu|AlertDialog|HoverCard|Menubar|NavigationMenu|ContextMenu|Tooltip)Trigger$"
+          # Must have the asChild prop
+          - has:
+              kind: jsx_attribute
+              has:
+                kind: property_identifier
+                regex: "^asChild$"
+    
+# Direct child element contains FormControl
+    - has:
+        kind: jsx_element
+        has:
+          kind: jsx_opening_element
+          has:
+            field: name
+            regex: "^FormControl$"

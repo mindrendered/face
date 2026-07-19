@@ -1,0 +1,28 @@
+id: selectItemWithEmptyValue
+language: Tsx
+files:
+  - src/**/*.tsx
+rule:
+  kind: jsx_opening_element
+  all:
+    - has:
+        kind: identifier
+        regex: '^SelectItem$'
+    - has:
+        kind: jsx_attribute
+        all:
+          - has:
+              kind: property_identifier
+              regex: '^value$'
+          - any:
+              - has:
+                  kind: string
+                  regex: '^""$'
+              - has:
+                  kind: jsx_expression
+                  has:
+                    kind: string
+                    regex: '^""$'
+
+message: "The Selected Item component was detected using an empty string as the value: $MATCH. This is incorrect usage and will cause a runtime error; please modify it. If you wish to implement a 'select all' function, it is recommended to use 'all' instead of an empty string."
+severity: error

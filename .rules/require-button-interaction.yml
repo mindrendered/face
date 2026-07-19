@@ -1,0 +1,66 @@
+id: require-button-interaction
+language: Tsx
+files:
+  - src/**/*.tsx
+  - src/**/*.jsx
+rule:
+  kind: jsx_opening_element
+  all:
+    # Must be a <Button> component.
+    - has:
+        kind: identifier
+        regex: '^Button$'
+    # No onClick
+    - not:
+        has:
+          kind: jsx_attribute
+          has:
+            kind: property_identifier
+            regex: '^onClick$'
+    # Without asChild
+    - not:
+        has:
+          kind: jsx_attribute
+          has:
+            kind: property_identifier
+            regex: '^asChild$'
+    # without type="submit" or type="reset"
+    - not:
+        has:
+          kind: jsx_attribute
+          all:
+            - has:
+                kind: property_identifier
+                regex: '^type$'
+            - any:
+                - has:
+                    kind: string
+                    regex: '^"(submit|reset)"$'
+                - has:
+                    kind: jsx_expression
+                    has:
+                      kind: string
+                      regex: '^"(submit|reset)"$'
+    # Not inside a *Trigger component (e.g. DialogTrigger、SheetTrigger）
+    - not:
+        inside:
+          stopBy: end
+          kind: jsx_element
+          has:
+            kind: jsx_opening_element
+            has:
+              kind: identifier
+              regex: 'Trigger$'
+    # Not inside a <Link> or <a> (where the parent provides the navigation interaction)
+    - not:
+        inside:
+          stopBy: end
+          kind: jsx_element
+          has:
+            kind: jsx_opening_element
+            has:
+              kind: identifier
+              regex: '^(Link|a)$'
+
+message: '<Button> It must be clickable; please ensure the click logic has been implemented. Please add it.onClick、type="submit"、type="reset"、asChild 属性，或将其包裹在 *Trigger 组件中，或 <Link> 或 <a> 中'
+severity: error
