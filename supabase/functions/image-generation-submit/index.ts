@@ -28,6 +28,23 @@ serve(async (req: Request): Promise<Response> => {
     const body = await req.json();
     contents = body.contents;
     if (!contents) throw new Error("Missing contents");
+
+    // Enhance image prompts with trending quality keywords if not already enriched
+    if (contents && typeof contents === "object" && "parts" in (contents as Record<string, unknown>)) {
+      const parts = (contents as { parts: Array<{ text?: string }> }).parts;
+      if (Array.isArray(parts) && parts[0]?.text) {
+        const text = parts[0].text;
+        const qualityKeywords = ["4k", "high resolution", "professional", "trending", "vibrant", "detailed"];
+        const alreadyEnhanced = qualityKeywords.filter(k => text.toLowerCase().includes(k)).length >= 2;
+
+        if (!alreadyEnhanced) {
+          parts[0].text = `${text}. Professional quality: ultra-high resolution, vibrant saturated colours, ` +
+            `trending aesthetic, sharp details, dynamic lighting, ` +
+            `eye-catching composition, scroll-stopping visual impact, ` +
+            `platform-optimized for social media, 4K crispness.`;
+        }
+      }
+    }
   } catch (e) {
     return err((e as Error).message || "Invalid request body");
   }

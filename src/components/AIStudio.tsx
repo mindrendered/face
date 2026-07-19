@@ -45,6 +45,30 @@ export const VIDEO_PRESETS = [
     label: 'Motivation / Mindset',
     prompt: 'Powerful motivational video, 9:16 Shorts. Dramatic cinematic B-roll: storm clouds breaking into sunrise, lone mountain climber silhouette, ocean waves. Overlaid bold all-caps quote in high-contrast white on dark. Emotional pacing — slow build to fast-cut climax at 15 seconds. Colour grade: desaturated with punchy contrast. Epic orchestral music vibe. Seamless fade-to-black outro with CTA text.',
   },
+  {
+    label: 'Cyberpunk Neon',
+    prompt: 'Neon-drenched cyberpunk vertical video, 9:16. Futuristic cityscape with glowing cyan and magenta neon signs reflecting on wet streets. Holographic data streams floating in air. Smooth tracking shot through a rain-soaked alley. Electric purple and teal colour grade. Volumetric fog and god rays. Glitch micro-transitions between shots. dystopian-futuristic mood, no faces, text-safe framing.',
+  },
+  {
+    label: 'Dark Mystery',
+    prompt: 'Dark moody mystery video, 9:16 vertical. Dramatic chiaroscuro lighting with deep crushed blacks. Volumetric smoke drifting through frame. Slow crane shot revealing a shadowy environment. Selective colour pops — single red or gold element against monochrome. Noir-inspired grade with film grain. Tension-building slow pacing. Cinematic letterbox feel. Mysterious, intriguing, binge-worthy.',
+  },
+  {
+    label: 'Satisfying Process',
+    prompt: 'Oddly satisfying process video, 9:16 vertical. Macro close-up B-roll of a mesmerising process — liquid pouring, paint mixing, objects being crafted. Smooth slow-motion at 120fps. Rich saturated colours, perfect lighting. Each step flows seamlessly into the next with crossfade transitions. ASMR-style visual calmness. No faces, no text — pure visual satisfaction. Loopable ending.',
+  },
+  {
+    label: 'Epic Nature',
+    prompt: 'Breathtaking nature documentary style, 9:16 vertical. Sweeping drone shot over dramatic landscape — mountain peaks, ocean coastline, forest canopy. Golden hour lighting with volumetric rays. Rich cinematic colour grade: deep greens, warm amber highlights. Slow majestic camera movement. Particle dust in sunlight. Film-grade motion blur. Premium National Geographic aesthetic, no faces.',
+  },
+  {
+    label: 'Minimalist Quote',
+    prompt: 'Elegant minimalist quote video, 9:16. Clean solid background — soft gradient or subtle texture. Single powerful quote appears word-by-word in refined typography. Smooth fade-in animation for each word. Gentle camera drift. Muted pastel palette with one accent colour. Premium editorial aesthetic. Calm, contemplative pacing. Perfect for mindset, wellness, or productivity niches.',
+  },
+  {
+    label: 'Retro Film Grain',
+    prompt: 'Vintage retro film-style video, 9:16 vertical. Warm Kodak Portra 400 emulation — amber tones, soft highlights, faded blacks. Authentic film grain texture throughout. Light leak overlays on transitions. Gentle vignette. Handheld camera feel with natural shake. Nostalgic 80s/90s aesthetic. Sun-flare moments. Analog warmth with modern resolution. Loop-friendly pacing.',
+  },
 ];
 
 export const IMAGE_PRESETS = [
@@ -71,6 +95,22 @@ export const IMAGE_PRESETS = [
   {
     label: 'Informative Carousel',
     prompt: 'Eye-catching first slide for an Instagram carousel post, 1:1 square. Bold headline stat in oversized numerals on a cream background — "5 FACTS THAT CHANGED MY LIFE". Thin accent border in deep teal. Source citation in small monospace font at bottom. Clean editorial layout, generous padding. Highly readable on mobile. Swipe-worthy information design.',
+  },
+  {
+    label: 'Neon Glow Card',
+    prompt: 'Vibrant neon-glow social card, 9:16 vertical. Dark matte background with glowing neon tube text — electric cyan, hot pink, or acid green. Subtle neon light spill and bloom effect around text. Wet-surface reflections at bottom. Faint grid pattern in background. Futuristic, trendy, scroll-stopping. Perfect for tech, crypto, or nightlife niches. 4K sharp.',
+  },
+  {
+    label: 'Warm Lifestyle',
+    prompt: 'Warm lifestyle flatlay-style image, 1:1 square. Overhead shot aesthetic: coffee cup, notebook, succulent plant, warm wooden desk. Golden-hour side lighting with soft shadows. Warm amber and cream colour palette. Shallow depth-of-field blur on edges. Clean, aspirational, Instagram-worthy. Text space in upper third. Premium creator aesthetic.',
+  },
+  {
+    label: 'Bold Stat Card',
+    prompt: 'High-impact statistics card, 9:16 vertical. Giant number "10X" in bold sans-serif taking up 40% of frame. Dark gradient background. Thin accent line separating headline from supporting text. Clean data-visualization style. Accent colour: electric blue or vivid coral. Professional, credible, shareable. Mobile-first readable typography.',
+  },
+  {
+    label: 'Gradient Mesh',
+    prompt: 'Trending gradient mesh background, 1:1 square. Smooth flowing colour transitions — deep purple to coral to golden yellow. Organic blob shapes with soft edges. Subtle noise texture for depth. Generous negative space for text overlay. Modern, vibrant, eye-catching. Perfect for quotes, announcements, or branding. 4K resolution.',
   },
 ];
 

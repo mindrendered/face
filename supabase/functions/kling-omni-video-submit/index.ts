@@ -40,18 +40,57 @@ serve(async (req: Request): Promise<Response> => {
   if (!apiKey) return err("Server configuration error: missing API key");
 
   // ── Quality enrichment ────────────────────────────────────────────────────
-  // Append cinematic quality directives to the prompt unless the caller already
-  // includes them (detected by presence of key phrases).
+  // Enrich the prompt with cinematic quality directives and trending styles.
   const rawPrompt = String(requestBody.prompt ?? "");
-  const qualityDirectives =
-    "Cinematic quality: smooth dolly or handheld-stabilised camera motion, " +
-    "seamless crossfade transitions between every shot, consistent colour grade throughout, " +
-    "no jump cuts, 30 fps motion-blur consistency, aesthetic B-roll, " +
-    "text-safe centre framing, professional Reels/Shorts pacing.";
-  const alreadyEnriched =
-    rawPrompt.includes("crossfade") ||
-    rawPrompt.includes("colour grade") ||
-    rawPrompt.includes("motion-blur");
+
+  // Detect if already enriched (check for multiple quality keywords)
+  const qualityKeywords = ["crossfade", "colour grade", "motion-blur", "cinematic quality", "professional"];
+  const qualityCount = qualityKeywords.filter(k => rawPrompt.toLowerCase().includes(k)).length;
+  const alreadyEnriched = qualityCount >= 2;
+
+  // Style presets based on visual_style hint from the prompt
+  const promptLower = rawPrompt.toLowerCase();
+  let styleEnrichment = "";
+
+  if (promptLower.includes("neon") || promptLower.includes("futuristic") || promptLower.includes("cyber")) {
+    styleEnrichment =
+      "Neon-lit cyberpunk aesthetic: glowing edge highlights, electric cyan and magenta accent lighting, " +
+      "holographic reflections on wet surfaces, futuristic HUD overlays, digital glitch micro-transitions.";
+  } else if (promptLower.includes("dark") || promptLower.includes("moody") || promptLower.includes("dramatic")) {
+    styleEnrichment =
+      "Dark dramatic cinematography: deep crushed blacks, volumetric god rays, chiaroscuro lighting, " +
+      "smoke/fog atmosphere, high contrast with selective colour pops, noir-inspired colour grade.";
+  } else if (promptLower.includes("bright") || promptLower.includes("vibrant") || promptLower.includes("colorful")) {
+    styleEnrichment =
+      "Vibrant saturated palette: punchy complementary colours, bright directional lighting, " +
+      "clean modern aesthetic, energetic motion graphics overlays, eye-catching colour transitions.";
+  } else if (promptLower.includes("vintage") || promptLower.includes("retro") || promptLower.includes("film")) {
+    styleEnrichment =
+      "Vintage film emulation: warm amber tones, subtle grain texture, light leak overlays, " +
+      "gentle vignette, Kodak Portra 400 colour science, analog feel with modern clarity.";
+  } else if (promptLower.includes("minimal") || promptLower.includes("clean")) {
+    styleEnrichment =
+      "Ultra-clean minimalist aesthetic: generous negative space, soft diffused lighting, " +
+      "muted pastel tones, elegant typography overlays, zen-like pacing, premium editorial feel.";
+  } else {
+    // Default: cinematic trending style
+    styleEnrichment =
+      "Premium cinematic look: rich colour grading with teal shadows and warm highlights, " +
+      "shallow depth-of-field, lens flares, film-grade motion blur, professional colour science.";
+  }
+
+  const qualityDirectives = alreadyEnriched
+    ? ""
+    : `Cinematic quality: smooth camera motion (dolly, tracking, or crane), ` +
+      `seamless crossfade transitions, consistent colour grade, ` +
+      `no jump cuts, 30fps motion-blur consistency, ` +
+      `text-safe centre framing, professional Reels/Shorts pacing. ` +
+      styleEnrichment + ` ` +
+      `Vibrant trending aesthetic: saturated highlights, deep shadows, ` +
+      `dynamic lighting that moves with the camera, ` +
+      `subtle particle effects or lens dust for depth, ` +
+      `smooth ease-in-ease-out motion on all transitions.`;
+
   const enrichedPrompt = alreadyEnriched
     ? rawPrompt
     : `${rawPrompt.trimEnd()}. ${qualityDirectives}`;
