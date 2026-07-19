@@ -4,7 +4,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT 
 
 -- Platform settings table (managed by super admin)
 CREATE TABLE IF NOT EXISTS platform_settings (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key text UNIQUE NOT NULL,
   value jsonb NOT NULL,
   description text,
@@ -29,7 +29,7 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Social connection credentials table (for OAuth tokens per user)
 CREATE TABLE IF NOT EXISTS social_credentials (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   platform text NOT NULL CHECK (platform IN ('instagram', 'youtube')),
   app_id text,

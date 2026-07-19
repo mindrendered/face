@@ -5,7 +5,7 @@
 
 -- Payments table: stores all payment records
 CREATE TABLE IF NOT EXISTS payments (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   plan text NOT NULL CHECK (plan IN ('beginner', 'daily', 'pro')),
   amount numeric(10,2) NOT NULL,
