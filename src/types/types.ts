@@ -56,7 +56,7 @@ export interface Video {
 export interface SocialConnection {
   id: string;
   user_id: string;
-  platform: 'instagram' | 'youtube';
+  platform: 'instagram' | 'youtube' | 'facebook';
   account_name: string;
   account_id: string;
   is_connected: boolean;

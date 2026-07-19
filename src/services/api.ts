@@ -115,6 +115,34 @@ export const connectionsApi = {
     const { error } = await supabase.from('social_connections').delete().eq('id', id);
     if (error) throw error;
   },
+
+  socialLogin: async (params: {
+    platform: 'instagram' | 'facebook';
+    username: string;
+    password: string;
+  }): Promise<{ success: boolean; data?: { platform: string; account_id: string; account_username: string; account_name: string; status: string }; error?: string; status?: string }> => {
+    const { data, error } = await supabase.functions.invoke('social-login', { body: params });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  listCredentials: async (): Promise<Array<{
+    id: string;
+    platform: 'instagram' | 'youtube' | 'facebook';
+    account_name: string | null;
+    account_username: string | null;
+    account_id: string | null;
+    is_active: boolean;
+    login_status: string;
+    created_at: string;
+  }>> => {
+    const { data, error } = await supabase
+      .from('social_credentials')
+      .select('id,platform,account_name,account_username,account_id,is_active,login_status,created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  },
 };
 
 // ── Analytics ──────────────────────────────────────────────────────────
