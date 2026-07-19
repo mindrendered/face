@@ -63,6 +63,7 @@ interface DashboardStats {
 const adminNav = [
   { key: 'overview', label: 'Overview', icon: BarChart3 },
   { key: 'plans', label: 'Plans & Pricing', icon: CreditCard },
+  { key: 'payments', label: 'Payments & UPI', icon: CreditCard },
   { key: 'ai', label: 'AI Generation', icon: Bot },
   { key: 'posting', label: 'Auto-Posting', icon: Clock },
   { key: 'moderation', label: 'Content Moderation', icon: AlertTriangle },
@@ -151,6 +152,80 @@ const SETTING_GROUPS: Record<string, { label: string; icon: ReactNode; keys: str
     descriptions: {
       analytics_retention_days: 'Days to keep analytics data before auto-deletion',
       demo_data_enabled: 'Seed demo analytics data for new users',
+    },
+  },
+  payment: {
+    label: 'Payment Gateway',
+    icon: <CreditCard size={14} />,
+    keys: [
+      'payment_enabled', 'payment_currency', 'payment_currency_symbol', 'payment_gateway',
+      'payment_upi_enabled', 'payment_upi_id', 'payment_upi_name', 'payment_upi_qr_enabled', 'payment_upi_merchant_code',
+      'payment_razorpay_enabled', 'payment_razorpay_key_id', 'payment_razorpay_key_secret',
+      'payment_stripe_enabled', 'payment_stripe_publishable_key', 'payment_stripe_secret_key',
+      'payment_cashfree_enabled', 'payment_cashfree_app_id', 'payment_cashfree_secret_key',
+    ],
+    descriptions: {
+      payment_enabled: 'Master switch — enable or disable all payments',
+      payment_currency: 'Default currency code (INR, USD, EUR, etc.)',
+      payment_currency_symbol: 'Currency symbol for display (₹, $, €, etc.)',
+      payment_gateway: 'Active payment gateway (manual, razorpay, stripe, cashfree)',
+      payment_upi_enabled: 'Enable UPI payments',
+      payment_upi_id: 'Primary UPI ID for receiving payments (e.g. name@upi)',
+      payment_upi_name: 'Display name shown on UPI payment screen',
+      payment_upi_qr_enabled: 'Show QR code for UPI payments',
+      payment_upi_merchant_code: 'UPI merchant code (optional)',
+      payment_razorpay_enabled: 'Enable Razorpay payment gateway',
+      payment_razorpay_key_id: 'Razorpay API Key ID',
+      payment_razorpay_key_secret: 'Razorpay API Key Secret',
+      payment_stripe_enabled: 'Enable Stripe payment gateway',
+      payment_stripe_publishable_key: 'Stripe Publishable Key',
+      payment_stripe_secret_key: 'Stripe Secret Key',
+      payment_cashfree_enabled: 'Enable Cashfree payment gateway',
+      payment_cashfree_app_id: 'Cashfree App ID',
+      payment_cashfree_secret_key: 'Cashfree Secret Key',
+    },
+  },
+  'payment-behavior': {
+    label: 'Payment Behavior',
+    icon: <Clock size={14} />,
+    keys: [
+      'payment_expiry_minutes', 'payment_retry_allowed', 'payment_auto_activate',
+      'payment_receipt_enabled', 'payment_success_redirect', 'payment_failed_redirect',
+    ],
+    descriptions: {
+      payment_expiry_minutes: 'Payment link expiry time in minutes',
+      payment_retry_allowed: 'Allow retrying failed payments',
+      payment_auto_activate: 'Auto-activate plan after successful payment',
+      payment_receipt_enabled: 'Generate payment receipts',
+      payment_success_redirect: 'Redirect URL after successful payment',
+      payment_failed_redirect: 'Redirect URL after failed payment',
+    },
+  },
+  subscription: {
+    label: 'Subscriptions',
+    icon: <RefreshCw size={14} />,
+    keys: [
+      'subscription_expiry_enabled', 'subscription_grace_period_days', 'subscription_auto_renew_reminder',
+    ],
+    descriptions: {
+      subscription_expiry_enabled: 'Expire subscriptions at period end',
+      subscription_grace_period_days: 'Grace period after subscription expiry',
+      subscription_auto_renew_reminder: 'Send reminder before renewal',
+    },
+  },
+  tax: {
+    label: 'Tax & Compliance',
+    icon: <AlertTriangle size={14} />,
+    keys: [
+      'payment_gst_enabled', 'payment_gst_rate', 'payment_gst_number',
+      'payment_invoice_prefix', 'payment_invoice_start',
+    ],
+    descriptions: {
+      payment_gst_enabled: 'Apply GST on payments',
+      payment_gst_rate: 'GST rate in percentage',
+      payment_gst_number: 'GSTIN number for invoices',
+      payment_invoice_prefix: 'Invoice number prefix',
+      payment_invoice_start: 'Starting invoice number',
     },
   },
 };
@@ -687,6 +762,10 @@ export default function AdminPage() {
       case 'notifications': return <SettingsPanel groupKey="notifications" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
       case 'branding': return <SettingsPanel groupKey="branding" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
       case 'analytics': return <SettingsPanel groupKey="analytics" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
+      case 'payments': return <SettingsPanel groupKey="payment" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
+      case 'payment-behavior': return <SettingsPanel groupKey="payment-behavior" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
+      case 'subscription': return <SettingsPanel groupKey="subscription" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
+      case 'tax': return <SettingsPanel groupKey="tax" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
       case 'connections': return renderConnections();
       case 'database': return renderDatabase();
       case 'ai-studio': return <AIStudio />;
@@ -754,6 +833,10 @@ export default function AdminPage() {
             {activeSection === 'notifications' && 'Email and in-app notification preferences'}
             {activeSection === 'branding' && 'Platform name, tagline, and maintenance mode'}
             {activeSection === 'analytics' && 'Analytics retention and demo data settings'}
+            {activeSection === 'payments' && 'UPI, Razorpay, Stripe, Cashfree — configure payment gateway and UPI ID'}
+            {activeSection === 'payment-behavior' && 'Payment expiry, auto-activation, retry, and receipt settings'}
+            {activeSection === 'subscription' && 'Subscription expiry, grace period, and renewal reminders'}
+            {activeSection === 'tax' && 'GST, tax compliance, and invoice numbering'}
             {activeSection === 'connections' && 'View all connected social accounts across users'}
             {activeSection === 'database' && 'Table row counts and data management'}
             {activeSection === 'ai-studio' && 'Generate videos and images directly'}

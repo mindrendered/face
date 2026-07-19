@@ -225,3 +225,73 @@ export const notificationsApi = {
     await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
   },
 };
+
+// ── Payments ──────────────────────────────────────────────────────────────
+export interface Payment {
+  id: string;
+  user_id: string;
+  plan: string;
+  amount: number;
+  currency: string;
+  method: string;
+  status: string;
+  transaction_id: string | null;
+  upi_id: string | null;
+  upi_transaction_ref: string | null;
+  payment_gateway: string | null;
+  metadata: Record<string, unknown>;
+  paid_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const paymentsApi = {
+  initiate: async (params: { plan: string; method: string }): Promise<{
+    payment_id: string; invoice_number: string; plan: string; amount: number;
+    currency: string; upi_id: string; upi_name: string; expires_at: string;
+  }> => {
+    const { data, error } = await supabase.functions.invoke('initiate-payment', { body: params });
+    if (error) throw new Error(error.message);
+    if (!data?.success) throw new Error(data?.error || 'Payment initiation failed');
+    return data.data;
+  },
+
+  verify: async (params: { payment_id: string; method: string; transaction_ref: string; razorpay_payment_id?: string; razorpay_order_id?: string; razorpay_signature?: string }): Promise<{
+    payment_id: string; status: string; plan: string; amount: number;
+  }> => {
+    const { data, error } = await supabase.functions.invoke('verify-payment', { body: params });
+    if (error) throw new Error(error.message);
+    if (!data?.success) throw new Error(data?.error || 'Payment verification failed');
+    return data.data;
+  },
+
+  list: async (): Promise<Payment[]> => {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  },
+
+  listAll: async (): Promise<Payment[]> => {
+    // Admin: list all payments across all users
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*, profiles!inner(email)')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  },
+
+  updateStatus: async (paymentId: string, status: string, transactionId?: string): Promise<void> => {
+    const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+    if (transactionId) update.transaction_id = transactionId;
+    if (status === 'completed') update.paid_at = new Date().toISOString();
+    const { error } = await supabase.from('payments').update(update).eq('id', paymentId);
+    if (error) throw error;
+  },
+};
