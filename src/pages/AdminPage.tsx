@@ -476,8 +476,13 @@ export default function AdminPage() {
     if (!confirm(`Delete ${user.email}? This will permanently remove their account and all associated data.`)) return;
     setDeletingUserId(userId);
     try {
-      const { error } = await supabase.from('profiles').delete().eq('id', userId);
-      if (error) { toast.error('Delete failed'); return; }
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { target_user_id: userId },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || 'Delete failed');
+        return;
+      }
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast.success('User deleted');
     } finally {
