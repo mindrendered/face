@@ -76,6 +76,8 @@ export interface SocialConnection {
   platform: 'instagram' | 'youtube';
   account_name: string;
   account_id: string;
+  access_token: string | null;
+  refresh_token: string | null;
   is_connected: boolean;
   connected_at: string;
   created_at: string;

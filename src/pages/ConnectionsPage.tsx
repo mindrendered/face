@@ -207,6 +207,8 @@ function OAuthConnectModal({ platform, onConnected }: { platform: 'youtube'; onC
         platform: 'youtube',
         account_name: form.account_name || '',
         account_id: form.app_id || '',
+        access_token: form.access_token || null,
+        refresh_token: form.refresh_token || null,
         is_connected: true,
       });
       toast.success('YouTube connected successfully');
