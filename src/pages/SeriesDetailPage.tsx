@@ -280,7 +280,7 @@ export default function SeriesDetailPage() {
         niche: series.niche,
         language: series.language,
         visual_style: series.visual_style,
-        skill_id: (series as any).skill_id || undefined,
+        skill_id: series.skill_id || undefined,
       });
 
       // 2. Create video record
