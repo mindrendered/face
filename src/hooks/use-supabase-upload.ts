@@ -3,7 +3,7 @@ import { type FileError, type FileRejection, useDropzone } from 'react-dropzone'
 import {type SupabaseClient} from '@supabase/supabase-js'
 
 interface FileWithPreview extends File {
-  preview?: string
+  preview: string
   errors: readonly FileError[]
 }
 
@@ -98,6 +98,14 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
         return file as FileWithPreview
       })
 
+      // Cleanup old previews to prevent memory leaks
+      files.forEach((f) => {
+        const preview = (f as FileWithPreview).preview
+        if (preview) {
+          URL.revokeObjectURL(preview)
+        }
+      })
+
       const newFiles = [...files, ...validFiles, ...invalidFiles]
 
       setFiles(newFiles)
@@ -117,15 +125,12 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   const onUpload = useCallback(async () => {
     setLoading(true)
 
-    // [Joshen] This is to support handling partial successes
-    // If any files didn't upload for any reason, hitting "Upload" again will only upload the files that had errors
+    // On retry, only re-upload files that previously failed.
+    // On first attempt, upload all files.
     const filesWithErrors = errors.map((x) => x.name)
     const filesToUpload =
       filesWithErrors.length > 0
-        ? [
-            ...files.filter((f) => filesWithErrors.includes(f.name)),
-            ...files.filter((f) => !successes.includes(f.name)),
-          ]
+        ? files.filter((f) => filesWithErrors.includes(f.name))
         : files
 
     const responses = await Promise.all(
@@ -145,14 +150,20 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     )
 
     const responseErrors = responses.filter((x) => x.message !== undefined)
-    // if there were errors previously, this function tried to upload the files again so we should clear/overwrite the existing errors.
-    setErrors(responseErrors)
-
+    // Merge: keep successes from prior attempts, add new successes
     const responseSuccesses = responses.filter((x) => x.message === undefined)
     const newSuccesses = Array.from(
       new Set([...successes, ...responseSuccesses.map((x) => x.name)])
     )
     setSuccesses(newSuccesses)
+
+    // Merge errors: remove files that succeeded on retry, keep/add failures
+    const succeededNames = new Set(newSuccesses)
+    const priorErrors = errors.filter((e) => !succeededNames.has(e.name))
+    // Deduplicate: if a file appears in both prior and response errors, keep the response error
+    const responseErrorNames = new Set(responseErrors.map((e) => e.name))
+    const dedupedPriorErrors = priorErrors.filter((e) => !responseErrorNames.has(e.name))
+    setErrors([...dedupedPriorErrors, ...responseErrors])
 
     setLoading(false)
   }, [files, path, bucketName, errors, successes])
@@ -177,6 +188,18 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
       }
     }
   }, [files.length, setFiles, maxFiles])
+
+  // Cleanup object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      files.forEach(f => {
+        const preview = (f as FileWithPreview).preview;
+        if (preview) {
+          URL.revokeObjectURL(preview);
+        }
+      });
+    };
+  }, []);
 
   return {
     files,

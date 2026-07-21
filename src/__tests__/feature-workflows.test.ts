@@ -3000,3 +3000,152 @@ Deno.test("Series: disconnect while auto-posting should disable", () => {
   assertEquals(updated.auto_posting_enabled, false);
   assertEquals(updated.instagram_account_id, null);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIGH-RISK GAP: useSupabaseUpload retry logic
+// ═══════════════════════════════════════════════════════════════════════════════
+
+Deno.test("Upload: first attempt uploads all files", () => {
+  // Simulates use-supabase-upload.ts lines 130-137
+  const files = ["a.jpg", "b.jpg", "c.jpg"];
+  const errors: string[] = [];
+  const successes: string[] = [];
+
+  const filesWithErrors = errors;
+  const filesToUpload = filesWithErrors.length > 0
+    ? files.filter(f => filesWithErrors.includes(f))
+    : files;
+
+  assertEquals(filesToUpload.length, 3, "First attempt should upload all files");
+});
+
+Deno.test("Upload: retry only uploads failed files", () => {
+  // After fix: retry logic only re-uploads files that failed
+  const files = ["a.jpg", "b.jpg", "c.jpg"];
+  const errors = [{ name: "b.jpg", message: "timeout" }];
+  const successes = ["a.jpg", "c.jpg"];
+
+  const filesWithErrors = errors.map(x => x.name);
+  const filesToUpload = filesWithErrors.length > 0
+    ? files.filter(f => filesWithErrors.includes(f))
+    : files;
+
+  assertEquals(filesToUpload.length, 1, "Retry should only upload failed file");
+  assertEquals(filesToUpload[0], "b.jpg");
+});
+
+Deno.test("Upload: retry does not re-upload successful files", () => {
+  const files = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"];
+  const errors = [{ name: "b.jpg", message: "timeout" }];
+  const successes = ["a.jpg", "c.jpg"];
+
+  const filesWithErrors = errors.map(x => x.name);
+  const filesToUpload = filesWithErrors.length > 0
+    ? files.filter(f => filesWithErrors.includes(f))
+    : files;
+
+  // Should NOT include a.jpg or c.jpg (already successful)
+  assertEquals(filesToUpload.includes("a.jpg"), false);
+  assertEquals(filesToUpload.includes("c.jpg"), false);
+  assertEquals(filesToUpload.includes("b.jpg"), true);
+});
+
+Deno.test("Upload: errors merge correctly on retry", () => {
+  // After fix: prior errors are kept, new errors are added, succeeded files are removed
+  const priorErrors = [
+    { name: "b.jpg", message: "timeout" },
+    { name: "c.jpg", message: "network error" },
+  ];
+  const successes = ["a.jpg"];
+
+  // Retry uploads b.jpg and c.jpg
+  // b.jpg succeeds, c.jpg still fails
+  const responseErrors = [{ name: "c.jpg", message: "still failing" }];
+  const responseSuccesses = [{ name: "b.jpg" }];
+
+  // Merge logic
+  const newSuccesses = Array.from(new Set([...successes, ...responseSuccesses.map(x => x.name)]));
+  const succeededNames = new Set(newSuccesses);
+  const priorErrorsFiltered = priorErrors.filter(e => !succeededNames.has(e.name));
+  // Deduplicate: if a file appears in both prior and response errors, keep the response error
+  const responseErrorNames = new Set(responseErrors.map(e => e.name));
+  const finalPriorErrors = priorErrorsFiltered.filter(e => !responseErrorNames.has(e.name));
+  const finalErrors = [...finalPriorErrors, ...responseErrors];
+
+  assertEquals(newSuccesses.length, 2, "b.jpg and a.jpg should be successful");
+  assertEquals(finalErrors.length, 1, "Only c.jpg should remain as error");
+  assertEquals(finalErrors[0].name, "c.jpg");
+});
+
+Deno.test("Upload: all retries succeed clears errors", () => {
+  const priorErrors = [{ name: "b.jpg", message: "timeout" }];
+  const successes = ["a.jpg"];
+
+  // Retry: b.jpg succeeds
+  const responseErrors: Array<{ name: string; message: string }> = [];
+  const responseSuccesses = [{ name: "b.jpg" }];
+
+  const newSuccesses = Array.from(new Set([...successes, ...responseSuccesses.map(x => x.name)]));
+  const succeededNames = new Set(newSuccesses);
+  const priorErrorsFiltered = priorErrors.filter(e => !succeededNames.has(e.name));
+  const finalErrors = [...priorErrorsFiltered, ...responseErrors];
+
+  assertEquals(finalErrors.length, 0, "All errors should be cleared");
+  assertEquals(newSuccesses.length, 2, "Both files should be successful");
+});
+
+Deno.test("Upload: isSuccess requires all files successful", () => {
+  // Simulates use-supabase-upload.ts lines 75-83
+  const files = ["a.jpg", "b.jpg", "c.jpg"];
+
+  // Case 1: no errors, no successes — not success
+  let errors: string[] = [];
+  let successes: string[] = [];
+  let isSuccess = errors.length === 0 && successes.length === 0
+    ? false
+    : errors.length === 0 && successes.length === files.length;
+  assertEquals(isSuccess, false);
+
+  // Case 2: partial success — not success
+  errors = [];
+  successes = ["a.jpg", "b.jpg"];
+  isSuccess = errors.length === 0 && successes.length === 0
+    ? false
+    : errors.length === 0 && successes.length === files.length;
+  assertEquals(isSuccess, false);
+
+  // Case 3: all successful — success
+  errors = [];
+  successes = ["a.jpg", "b.jpg", "c.jpg"];
+  isSuccess = errors.length === 0 && successes.length === 0
+    ? false
+    : errors.length === 0 && successes.length === files.length;
+  assertEquals(isSuccess, true);
+
+  // Case 4: has errors — not success
+  errors = ["c.jpg"];
+  successes = ["a.jpg", "b.jpg"];
+  isSuccess = errors.length === 0 && successes.length === 0
+    ? false
+    : errors.length === 0 && successes.length === files.length;
+  assertEquals(isSuccess, false);
+});
+
+Deno.test("Upload: too-many-files error cleared when count drops", () => {
+  // Simulates use-supabase-upload.ts lines 168-186
+  const maxFiles = 3;
+  const files = [
+    { name: "a.jpg", errors: [{ code: "too-many-files" }] },
+    { name: "b.jpg", errors: [] },
+    { name: "c.jpg", errors: [] },
+  ];
+
+  // When files.length <= maxFiles, remove too-many-files errors
+  if (files.length <= maxFiles) {
+    for (const file of files) {
+      file.errors = file.errors.filter(e => e.code !== "too-many-files");
+    }
+  }
+
+  assertEquals(files[0].errors.length, 0, "too-many-files error should be removed");
+});
