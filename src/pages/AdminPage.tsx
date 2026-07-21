@@ -368,48 +368,58 @@ export default function AdminPage() {
   }, [isAdmin, authLoading, navigate]);
 
   const loadSettings = useCallback(async () => {
-    const { data } = await supabase.from('platform_settings').select('*').order('key');
-    setSettings((data ?? []) as PlatformSetting[]);
-    const plansSetting = (data ?? []).find(s => s.key === 'plans');
-    if (plansSetting) {
-      const p = plansSetting.value as PlansConfig;
-      setPlans(p);
-      setEditedPlans(JSON.parse(JSON.stringify(p)));
+    try {
+      const { data } = await supabase.from('platform_settings').select('*').order('key');
+      setSettings((data ?? []) as PlatformSetting[]);
+      const plansSetting = (data ?? []).find(s => s.key === 'plans');
+      if (plansSetting) {
+        const p = plansSetting.value as PlansConfig;
+        setPlans(p);
+        setEditedPlans(JSON.parse(JSON.stringify(p)));
+      }
+    } catch {
+      toast.error('Failed to load settings');
+    } finally {
+      setLoadingSettings(false);
     }
-    setLoadingSettings(false);
   }, []);
 
   const loadUsers = useCallback(async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, plan, is_admin, videos_generated_count, created_at')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    const rows = (data ?? []) as UserRow[];
-    setUsers(rows);
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, plan, is_admin, videos_generated_count, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      const rows = (data ?? []) as UserRow[];
+      setUsers(rows);
 
-    // Compute stats
-    const planBreakdown = { beginner: 0, daily: 0, pro: 0 };
-    rows.forEach(u => {
-      if (u.plan in planBreakdown) planBreakdown[u.plan as keyof typeof planBreakdown]++;
-    });
+      // Compute stats
+      const planBreakdown = { beginner: 0, daily: 0, pro: 0 };
+      rows.forEach(u => {
+        if (u.plan in planBreakdown) planBreakdown[u.plan as keyof typeof planBreakdown]++;
+      });
 
-    // Get video count
-    const { count: videoCount } = await supabase.from('videos').select('id', { count: 'exact', head: true });
-    const { count: seriesCount } = await supabase.from('series').select('id', { count: 'exact', head: true });
+      // Get video count
+      const { count: videoCount } = await supabase.from('videos').select('id', { count: 'exact', head: true });
+      const { count: seriesCount } = await supabase.from('series').select('id', { count: 'exact', head: true });
 
-    // Active users (logged in within 7 days — approximate via profile updated_at)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const { count: activeCount } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('updated_at', sevenDaysAgo);
+      // Active users (logged in within 7 days — approximate via profile updated_at)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      const { count: activeCount } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('updated_at', sevenDaysAgo);
 
-    setStats({
-      totalUsers: rows.length,
-      totalVideos: videoCount ?? 0,
-      totalSeries: seriesCount ?? 0,
-      activeUsers: activeCount ?? 0,
-      planBreakdown,
-    });
-    setLoadingUsers(false);
+      setStats({
+        totalUsers: rows.length,
+        totalVideos: videoCount ?? 0,
+        totalSeries: seriesCount ?? 0,
+        activeUsers: activeCount ?? 0,
+        planBreakdown,
+      });
+    } catch {
+      toast.error('Failed to load users');
+    } finally {
+      setLoadingUsers(false);
+    }
   }, []);
 
   useEffect(() => { loadSettings(); loadUsers(); }, [loadSettings, loadUsers]);

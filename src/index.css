@@ -187,3 +187,22 @@
   .intersect\:opacity-100 { opacity: 1; }
   .intersect\:translate-y-0 { transform: translateY(0); }
 }
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping {
+    animation: none !important;
+  }
+  .card-hover:hover {
+    transform: none;
+  }
+  .btn-glow {
+    box-shadow: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
