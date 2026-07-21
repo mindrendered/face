@@ -78,6 +78,7 @@ export function useVideoGeneration({ onSave }: UseVideoGenerationOptions = {}) {
 
   const reset = () => {
     if (pollRef.current) clearInterval(pollRef.current);
+    if (url) URL.revokeObjectURL(url);
     setStatus('idle');
     setProgress(0);
     setStage('');

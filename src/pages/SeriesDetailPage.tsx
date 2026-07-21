@@ -266,9 +266,13 @@ export default function SeriesDetailPage() {
   const toggleAutoPost = async () => {
     if (!series) return;
     const next = !series.auto_posting_enabled;
-    await seriesApi.update(series.id, { auto_posting_enabled: next });
-    setSeries(prev => prev ? { ...prev, auto_posting_enabled: next } : prev);
-    toast.success(`Auto-posting ${next ? 'enabled' : 'disabled'}`);
+    try {
+      await seriesApi.update(series.id, { auto_posting_enabled: next });
+      setSeries(prev => prev ? { ...prev, auto_posting_enabled: next } : prev);
+      toast.success(`Auto-posting ${next ? 'enabled' : 'disabled'}`);
+    } catch {
+      toast.error('Failed to update auto-posting');
+    }
   };
 
   const generateNew = async () => {

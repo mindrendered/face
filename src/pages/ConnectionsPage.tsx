@@ -323,7 +323,23 @@ export default function ConnectionsPage() {
 
   const disconnect = async (id: string) => {
     try {
+      const cred = credentials.find(c => c.id === id);
       await connectionsApi.disconnect(id);
+
+      // Unlink from any series that reference this credential
+      if (cred) {
+        const field = cred.platform === 'instagram' ? 'instagram_account_id' : 'youtube_account_id';
+        const linkedSeries = series.filter(s => (s as Record<string, unknown>)[field] === id);
+        await Promise.all(linkedSeries.map(s =>
+          seriesApi.update(s.id, { [field]: null, auto_posting_enabled: false })
+        ));
+        setSeries(prev => prev.map(s =>
+          linkedSeries.find(ls => ls.id === s.id)
+            ? { ...s, [field]: null, auto_posting_enabled: false }
+            : s
+        ));
+      }
+
       toast.success('Account disconnected');
       setCredentials(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
     } catch (err: unknown) {
