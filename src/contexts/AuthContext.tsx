@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '@/db/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Profile } from '@/types/types';
+import { setSentryUser, clearSentryUser } from '@/lib/sentry';
 
 interface AuthContextType {
   session: Session | null;
@@ -33,19 +34,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id).finally(() => setLoading(false));
-      else setLoading(false);
+      if (session?.user) {
+        setSentryUser({ id: session.user.id, email: session.user.email });
+        fetchProfile(session.user.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        setSentryUser({ id: session.user.id, email: session.user.email });
+        fetchProfile(session.user.id);
+      } else {
+        clearSentryUser();
+        setProfile(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
+    clearSentryUser();
     await supabase.auth.signOut();
     setProfile(null);
   };
