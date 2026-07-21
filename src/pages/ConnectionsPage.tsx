@@ -301,19 +301,31 @@ export default function ConnectionsPage() {
   useEffect(() => { load(); }, []);
 
   const disconnect = async (id: string) => {
-    await connectionsApi.disconnect(id);
-    toast.success('Account disconnected');
-    setCredentials(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
+    try {
+      await connectionsApi.disconnect(id);
+      toast.success('Account disconnected');
+      setCredentials(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Disconnect failed');
+    }
   };
 
   const remove = async (id: string) => {
-    await connectionsApi.delete(id);
-    toast.success('Account removed');
-    setCredentials(prev => prev.filter(c => c.id !== id));
+    try {
+      await connectionsApi.delete(id);
+      toast.success('Account removed');
+      setCredentials(prev => prev.filter(c => c.id !== id));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Remove failed');
+    }
   };
 
   const linkToSeries = async (seriesId: string, platform: string, credId: string) => {
-    const field = platform === 'instagram' ? 'instagram_account_id' : platform === 'facebook' ? 'youtube_account_id' : 'youtube_account_id';
+    const fieldMap: Record<string, string> = {
+      instagram: 'instagram_account_id',
+      youtube: 'youtube_account_id',
+    };
+    const field = fieldMap[platform] || 'youtube_account_id';
     await seriesApi.update(seriesId, { [field]: credId });
     setSeries(prev => prev.map(s => s.id === seriesId ? { ...s, [field]: credId } : s));
     toast.success('Account linked to series');
@@ -430,7 +442,7 @@ export default function ConnectionsPage() {
               <div key={s.id} className="rounded-xl border border-border p-4 space-y-3">
                 <p className="text-sm font-bold">{s.name}</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {(['instagram', 'facebook', 'youtube'] as const).map(platform => {
+                  {(['instagram', 'youtube'] as const).map(platform => {
                     const platformCreds = credentials.filter(c => c.platform === platform && c.is_active);
                     if (platformCreds.length === 0) return null;
                     const field = platform === 'instagram' ? 'instagram_account_id' : 'youtube_account_id';
