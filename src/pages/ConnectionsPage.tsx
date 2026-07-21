@@ -203,10 +203,26 @@ function OAuthConnectModal({ platform, onConnected }: { platform: 'youtube'; onC
     if (!form.access_token?.trim()) { toast.error('Access Token is required'); return; }
     setSaving(true);
     try {
+      // Fetch the actual YouTube channel ID from the API
+      let channelId = form.app_id || '';
+      let channelName = form.account_name || '';
+      try {
+        const res = await fetch('https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true', {
+          headers: { Authorization: `Bearer ${form.access_token}` },
+        });
+        const data = await res.json();
+        if (data.items?.length > 0) {
+          channelId = data.items[0].id;
+          channelName = channelName || data.items[0].snippet?.title || '';
+        }
+      } catch {
+        // If YouTube API call fails, fall back to Client ID (user can update later)
+      }
+
       await connectionsApi.upsert({
         platform: 'youtube',
-        account_name: form.account_name || '',
-        account_id: form.app_id || '',
+        account_name: channelName,
+        account_id: channelId,
         access_token: form.access_token || null,
         refresh_token: form.refresh_token || null,
         is_connected: true,
