@@ -43,7 +43,7 @@ function VideoRow({ video }: { video: Video }) {
         <span>{cfg.label}</span>
       </div>
       {video.status === 'ready' && video.video_url && (
-        <a href={video.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+        <a href={video.video_url} download className="shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7">
             <Download size={12} />
           </Button>

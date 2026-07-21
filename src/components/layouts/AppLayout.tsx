@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Film, FolderOpen, Link2, Calendar, BarChart2,
-  Settings, Menu, LogOut, Zap, Bell, Shield, Loader2, Wand2
+  Settings, Menu, LogOut, Zap, Bell, Shield, Loader2, Wand2, Package
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Create Series', path: '/create-series', icon: Zap },
   { label: 'My Series',     path: '/series',         icon: FolderOpen },
   { label: 'AI Studio',     path: '/studio',         icon: Wand2 },
+  { label: 'Skills',        path: '/skills',         icon: Package },
   { label: 'Connections',   path: '/connections',    icon: Link2 },
   { label: 'Schedule',      path: '/schedule',       icon: Calendar },
   { label: 'Analytics',     path: '/analytics',      icon: BarChart2 },
@@ -160,14 +161,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="ghost" size="icon"
-              onClick={() => navigate('/dashboard')}
-              className="relative h-8 w-8"
-              aria-label="Notifications"
-            >
-              <Bell size={15} />
-            </Button>
             {profile && (
               <div
                 className="w-7 h-7 rounded-full gradient-bg flex items-center justify-center text-xs font-bold text-white cursor-pointer"

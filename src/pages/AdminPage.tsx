@@ -1211,10 +1211,7 @@ function AiUsagePanel() {
   useEffect(() => {
     (async () => {
       try {
-        const [s, r] = await Promise.all([
-          Promise.resolve(supabase.rpc('1')).then(() => null).catch(() => null), // fallback
-          supabase.from('ai_usage').select('*').gte('created_at', new Date(Date.now() - days * 86400000).toISOString()).order('created_at', { ascending: false }).limit(50),
-        ]);
+        const r = await supabase.from('ai_usage').select('*').gte('created_at', new Date(Date.now() - days * 86400000).toISOString()).order('created_at', { ascending: false }).limit(50);
         // Compute stats client-side
         const records = (r.data ?? []) as any[];
         const byProvider: Record<string, { calls: number; tokens: number; cost: number }> = {};

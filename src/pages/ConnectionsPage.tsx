@@ -240,7 +240,7 @@ function OAuthConnectModal({ platform, onConnected }: { platform: 'youtube'; onC
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setForm({}); }}>
       <DialogTrigger asChild>
         <Button size="sm" className="h-8 text-xs gradient-bg border-0 text-white font-semibold">
           <Plus size={12} className="mr-1.5" />Connect
