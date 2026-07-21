@@ -280,6 +280,7 @@ export default function SeriesDetailPage() {
         niche: series.niche,
         language: series.language,
         visual_style: series.visual_style,
+        skill_id: (series as any).skill_id || undefined,
       });
 
       // 2. Create video record
@@ -322,7 +323,7 @@ export default function SeriesDetailPage() {
   };
 
   const retryVideo = async (videoId: string) => {
-    await videosApi.update(videoId, { status: 'queued', retry_count: 0, error_message: null });
+    await videosApi.update(videoId, { status: 'queued', error_message: null });
     toast.success('Video re-queued');
     await load();
   };

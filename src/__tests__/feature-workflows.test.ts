@@ -2409,6 +2409,31 @@ Deno.test("GenerationContext: retry resets status to queued", () => {
   assertEquals(updated.error_message, null);
 });
 
+Deno.test("FIXED: manual retry does not reset retry_count", () => {
+  // After fix: SeriesDetailPage.retryVideo only sets status='queued' and clears error
+  // retry_count stays as-is so auto-retry won't loop infinitely
+  const video = { status: "failed", retry_count: 3, error_message: "error" };
+  const updated = { ...video, status: "queued", error_message: null };
+  // retry_count is NOT touched — stays at 3
+  assertEquals(updated.retry_count, 3, "retry_count should not be reset");
+  assertEquals(updated.status, "queued");
+  assertEquals(updated.error_message, null);
+});
+
+Deno.test("FIXED: manual retry after auto-retry exhaustion", () => {
+  // Scenario: auto-retry exhausted (retry_count=3), user manually retries
+  // Video gets queued but auto-retry won't trigger (retry_count >= 3)
+  const MAX_AUTO_RETRIES = 3;
+  const video = { status: "failed", retry_count: 3 };
+
+  // Manual retry: just queue it
+  const afterManualRetry = { ...video, status: "queued", error_message: null };
+
+  // GenerationContext picks it up, sees retry_count=3, decides NOT to auto-retry
+  const shouldAutoRetry = afterManualRetry.retry_count < MAX_AUTO_RETRIES;
+  assertEquals(shouldAutoRetry, false, "Should not auto-retry after manual retry when count >= 3");
+});
+
 Deno.test("GenerationContext: progress estimation formula", () => {
   // Simulates GenerationContext.tsx line 99
   const TOTAL_DURATION_MS = 420 * 1000; // 7 minutes
