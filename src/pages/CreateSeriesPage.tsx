@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { seriesApi, videosApi, skillsApi } from '@/services/api';
 import { NICHES, LANGUAGES, VISUAL_STYLES, VOICES, MUSIC_STYLES, CAPTION_STYLES } from '@/types/types';
+import { trackSeriesCreated } from '@/lib/analytics';
 import { CheckCircle2, ChevronRight, ArrowLeft, Zap, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -427,6 +428,7 @@ export default function CreateSeriesPage() {
       });
       // Queue first video
       await videosApi.create({ series_id: series.id, title: `${form.name} — Episode 1` });
+      trackSeriesCreated(niche || form.niche_custom || 'unknown');
       toast.success('Series created! Your first video is being queued.');
       navigate(`/series/${series.id}`);
     } catch (err: unknown) {

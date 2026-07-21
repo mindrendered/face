@@ -3,6 +3,7 @@ import { supabase } from '@/db/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Profile } from '@/types/types';
 import { setSentryUser, clearSentryUser } from '@/lib/sentry';
+import { identifyUser, resetUser } from '@/lib/analytics';
 
 interface AuthContextType {
   session: Session | null;
@@ -28,6 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase.from('profiles').select('*, is_admin').eq('id', uid).maybeSingle();
     setProfile(data ?? null);
+    if (data) {
+      identifyUser({ id: data.id, email: data.email, plan: data.plan });
+    }
   };
 
   useEffect(() => {
@@ -57,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     clearSentryUser();
+    resetUser();
     await supabase.auth.signOut();
     setProfile(null);
   };

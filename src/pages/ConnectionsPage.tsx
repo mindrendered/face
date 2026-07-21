@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Series } from '@/types/types';
 import { seriesApi, connectionsApi } from '@/services/api';
+import { trackConnectionAdded } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -107,6 +108,7 @@ function LoginConnectModal({ platform, onConnected }: { platform: 'instagram' | 
       }
 
       toast.success(`${meta.label} connected as @${result.data?.account_username || username}`);
+      trackConnectionAdded(platform);
       setOpen(false);
       setUsername('');
       setPassword('');
@@ -208,6 +210,7 @@ function OAuthConnectModal({ platform, onConnected }: { platform: 'youtube'; onC
         is_connected: true,
       });
       toast.success('YouTube connected successfully');
+      trackConnectionAdded('youtube');
       setOpen(false);
       setForm({});
       onConnected();
