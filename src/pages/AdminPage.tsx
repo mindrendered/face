@@ -14,7 +14,7 @@ import {
   Bell, Palette, BarChart3, AlertTriangle, Server, Trash2, Eye,
   Globe, Database, Link2, Zap, Activity, TrendingUp, Film,
   ExternalLink, Search, ChevronDown, X, Check, Instagram, Youtube,
-  Settings, ArrowLeft, Crown, Skull,
+  Settings, ArrowLeft, Crown, Skull, Terminal, FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -65,6 +65,8 @@ const adminNav = [
   { key: 'plans', label: 'Plans & Pricing', icon: CreditCard },
   { key: 'payments', label: 'Payments & UPI', icon: CreditCard },
   { key: 'ai', label: 'AI Generation', icon: Bot },
+  { key: 'ai-providers', label: 'AI Providers', icon: Server },
+  { key: 'ai-usage', label: 'AI Usage', icon: Activity },
   { key: 'posting', label: 'Auto-Posting', icon: Clock },
   { key: 'moderation', label: 'Content Moderation', icon: AlertTriangle },
   { key: 'limits', label: 'Platform Limits', icon: Globe },
@@ -74,6 +76,7 @@ const adminNav = [
   { key: 'connections', label: 'Social Connections', icon: Link2 },
   { key: 'database', label: 'Database', icon: Database },
   { key: 'ai-studio', label: 'AI Studio', icon: Zap },
+  { key: 'sql-editor', label: 'SQL Editor', icon: Terminal },
   { key: 'users', label: 'User Management', icon: Users },
 ];
 
@@ -344,7 +347,7 @@ function SettingsPanel({ groupKey, settings, loadingSettings, savingKey, updateS
 
 // ── Main Admin Page ─────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [settings, setSettings] = useState<PlatformSetting[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -461,12 +464,25 @@ export default function AdminPage() {
     toast.success('Plan updated');
   };
 
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
   const deleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) { toast.error('Delete failed'); return; }
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    toast.success('User deleted');
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    if (user.id === profile?.id) {
+      toast.error('You cannot delete your own account');
+      return;
+    }
+    if (!confirm(`Delete ${user.email}? This will permanently remove their account and all associated data.`)) return;
+    setDeletingUserId(userId);
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      if (error) { toast.error('Delete failed'); return; }
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      toast.success('User deleted');
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   if (authLoading) return (
@@ -526,8 +542,8 @@ export default function AdminPage() {
         {[
           { label: 'Edit Plans', icon: CreditCard, section: 'plans' },
           { label: 'AI Config', icon: Bot, section: 'ai' },
+          { label: 'SQL Editor', icon: Terminal, section: 'sql-editor' },
           { label: 'Manage Users', icon: Users, section: 'users' },
-          { label: 'AI Studio', icon: Zap, section: 'ai-studio' },
         ].map(item => (
           <button
             key={item.section}
@@ -702,8 +718,8 @@ export default function AdminPage() {
                           <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold" onClick={() => toggleAdmin(u.id, u.is_admin)}>
                             {u.is_admin ? 'Revoke' : 'Make admin'}
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive font-semibold" onClick={() => deleteUser(u.id)}>
-                            <Trash2 size={11} />
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive font-semibold" onClick={() => deleteUser(u.id)} disabled={deletingUserId === u.id}>
+                            {deletingUserId === u.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                           </Button>
                         </div>
                       </td>
@@ -756,6 +772,8 @@ export default function AdminPage() {
       case 'overview': return renderOverview();
       case 'plans': return renderPlans();
       case 'ai': return <SettingsPanel groupKey="ai" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
+      case 'ai-providers': return <AiProvidersPanel />;
+      case 'ai-usage': return <AiUsagePanel />;
       case 'posting': return <SettingsPanel groupKey="posting" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
       case 'moderation': return <SettingsPanel groupKey="moderation" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
       case 'limits': return <SettingsPanel groupKey="limits" settings={settings} loadingSettings={loadingSettings} savingKey={savingKey} updateSetting={updateSetting} />;
@@ -769,6 +787,7 @@ export default function AdminPage() {
       case 'connections': return renderConnections();
       case 'database': return renderDatabase();
       case 'ai-studio': return <AIStudio />;
+      case 'sql-editor': return <SqlEditorSection />;
       case 'users': return renderUsers();
       default: return renderOverview();
     }
@@ -827,6 +846,8 @@ export default function AdminPage() {
             {activeSection === 'overview' && 'Platform overview and quick actions'}
             {activeSection === 'plans' && 'Configure subscription pricing and video limits'}
             {activeSection === 'ai' && 'AI model configuration for script, video, and image generation'}
+            {activeSection === 'ai-providers' && 'Configure API keys for OpenAI, Anthropic, Google, Mistral, Ollama, and custom providers'}
+            {activeSection === 'ai-usage' && 'Monitor AI token usage, costs, and latency across all providers'}
             {activeSection === 'posting' && 'Auto-posting rules, retry logic, and scheduling windows'}
             {activeSection === 'moderation' && 'Content screening and blocking rules'}
             {activeSection === 'limits' && 'Per-plan limits on series and generation'}
@@ -840,12 +861,535 @@ export default function AdminPage() {
             {activeSection === 'connections' && 'View all connected social accounts across users'}
             {activeSection === 'database' && 'Table row counts and data management'}
             {activeSection === 'ai-studio' && 'Generate videos and images directly'}
+            {activeSection === 'sql-editor' && 'Write, approve, and execute SQL queries safely'}
             {activeSection === 'users' && 'Manage users, plans, and admin roles'}
           </p>
         </div>
 
         {renderSection()}
       </div>
+    </div>
+  );
+}
+
+// ── AI Providers Panel ─────────────────────────────────────────────────────
+function AiProvidersPanel() {
+  const { user } = useAuth();
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    provider: 'openai' as string,
+    api_key: '',
+    base_url: '',
+    models: '' as string,
+    is_active: true,
+    priority: 0,
+    use_for: ['script', 'llm', 'image'] as string[],
+  });
+
+  const providerOptions = [
+    { value: 'openai', label: 'OpenAI', defaultUrl: 'https://api.openai.com', placeholder: 'sk-...' },
+    { value: 'anthropic', label: 'Anthropic', defaultUrl: 'https://api.anthropic.com', placeholder: 'sk-ant-...' },
+    { value: 'google', label: 'Google AI', defaultUrl: 'https://generativelanguage.googleapis.com', placeholder: 'AIza...' },
+    { value: 'mistral', label: 'Mistral', defaultUrl: 'https://api.mistral.ai', placeholder: 'mistral-...' },
+    { value: 'nvidia_nim', label: 'NVIDIA NIM', defaultUrl: 'https://integrate.api.nvidia.com', placeholder: 'nvapi-...' },
+    { value: 'ollama', label: 'Ollama (Local)', defaultUrl: 'http://localhost:11434', placeholder: 'N/A' },
+    { value: 'cosmos', label: 'NVIDIA Cosmos (Local)', defaultUrl: 'http://localhost:8000', placeholder: 'NGC API key (optional)' },
+    { value: 'custom', label: 'Custom', defaultUrl: '', placeholder: 'API key' },
+  ];
+
+  const modelSuggestions: Record<string, string[]> = {
+    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-mini'],
+    anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+    google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+    mistral: ['mistral-large-latest', 'mistral-medium-latest', 'codestral-latest'],
+    ollama: ['llama3.1', 'mistral', 'codellama', 'gemma2'],
+    cosmos: ['Cosmos3-Nano', 'Cosmos3-Super'],
+    nvidia_nim: ['nvidia/llama-3.1-nemotron-70b-instruct', 'nvidia/cosmos-reason2-8b', 'deepseek-ai/deepseek-v4-flash'],
+    custom: [],
+  };
+
+  const useForOptions = [
+    { value: 'script', label: 'Script Gen' },
+    { value: 'llm', label: 'General LLM' },
+    { value: 'image', label: 'Image Gen' },
+  ];
+
+  const loadProviders = async () => {
+    try {
+      const { data, error } = await supabase.from('ai_providers').select('*').order('priority', { ascending: false });
+      if (!error) setProviders(data ?? []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadProviders(); }, []);
+
+  const resetForm = () => {
+    setForm({ name: '', provider: 'openai', api_key: '', base_url: '', models: '', is_active: true, priority: 0, use_for: ['script', 'llm', 'image'] });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (p: any) => {
+    setForm({
+      name: p.name,
+      provider: p.provider,
+      api_key: p.api_key || '',
+      base_url: p.base_url || '',
+      models: Array.isArray(p.models) ? p.models.join(', ') : '',
+      is_active: p.is_active,
+      priority: p.priority,
+      use_for: Array.isArray(p.use_for) ? p.use_for : ['script', 'llm', 'image'],
+    });
+    setEditingId(p.id);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name || !form.provider) return;
+    setSaving(true);
+    try {
+      const modelsArr = form.models.split(',').map(m => m.trim()).filter(Boolean);
+      const payload = {
+        name: form.name,
+        provider: form.provider,
+        api_key: form.api_key || null,
+        base_url: form.base_url || null,
+        models: modelsArr,
+        is_active: form.is_active,
+        priority: form.priority,
+        use_for: form.use_for,
+      };
+      if (editingId) {
+        const { error } = await supabase.from('ai_providers').update(payload).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('ai_providers').insert({ ...payload, user_id: user?.id });
+        if (error) throw error;
+      }
+      toast.success(editingId ? 'Provider updated' : 'Provider added');
+      resetForm();
+      loadProviders();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this provider?')) return;
+    const { error } = await supabase.from('ai_providers').delete().eq('id', id);
+    if (!error) { toast.success('Deleted'); loadProviders(); }
+  };
+
+  const handleTest = async (p: any) => {
+    setTestingId(p.id);
+    try {
+      const model = Array.isArray(p.models) && p.models.length > 0 ? p.models[0] : '';
+      const { data, error } = await supabase.functions.invoke('test-ai-provider', {
+        body: { provider: p.provider, base_url: p.base_url || '', api_key: p.api_key || '', model },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success(`Connected in ${data.latency_ms}ms`);
+      } else {
+        toast.error(data?.error || 'Connection failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Test failed');
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const providerIcon = (p: string) => {
+    switch (p) {
+      case 'openai': return <Bot size={14} className="text-green-600" />;
+      case 'anthropic': return <Bot size={14} className="text-orange-500" />;
+      case 'google': return <Bot size={14} className="text-blue-500" />;
+      case 'mistral': return <Bot size={14} className="text-purple-500" />;
+      case 'ollama': return <Server size={14} className="text-teal-500" />;
+      case 'cosmos': return <Bot size={14} className="text-emerald-500" />;
+      case 'nvidia_nim': return <Bot size={14} className="text-green-600" />;
+      default: return <Globe size={14} className="text-gray-500" />;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+            <Server size={14} className="text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold">AI Providers</h3>
+            <p className="text-xs text-muted-foreground">Manage API keys and model configurations</p>
+          </div>
+        </div>
+        <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
+          <Bot size={13} className="mr-1.5" /> Add Provider
+        </Button>
+      </div>
+
+      {/* Add/Edit Form */}
+      {showForm && (
+        <Card className="border border-border shadow-none">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold">{editingId ? 'Edit Provider' : 'Add Provider'}</h4>
+              <button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[10px] font-semibold">Name</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="My OpenAI Key" className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-[10px] font-semibold">Provider</Label>
+                <select value={form.provider} onChange={e => {
+                  const p = e.target.value;
+                  setForm(f => ({ ...f, provider: p, base_url: providerOptions.find(o => o.value === p)?.defaultUrl || '' }));
+                }} className="w-full h-8 text-xs mt-1 border border-border rounded-md px-2 bg-background">
+                  {providerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label className="text-[10px] font-semibold">API Key</Label>
+                <Input type="password" value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))} placeholder={providerOptions.find(o => o.value === form.provider)?.placeholder} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-[10px] font-semibold">Base URL</Label>
+                <Input value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} placeholder="https://api.openai.com" className="h-8 text-xs mt-1" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-[10px] font-semibold">Models (comma-separated)</Label>
+                <Input value={form.models} onChange={e => setForm(f => ({ ...f, models: e.target.value }))} placeholder={modelSuggestions[form.provider]?.join(', ') || 'model-id'} className="h-8 text-xs mt-1" />
+                {modelSuggestions[form.provider]?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {modelSuggestions[form.provider].map(m => (
+                      <button key={m} onClick={() => setForm(f => ({ ...f, models: f.models ? `${f.models}, ${m}` : m }))}
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">
+                        + {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-[10px] font-semibold">Priority</Label>
+                <Input type="number" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) }))} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-[10px] font-semibold">Use For</Label>
+                <div className="flex gap-2 mt-1">
+                  {useForOptions.map(u => (
+                    <button key={u.value}
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        use_for: f.use_for.includes(u.value) ? f.use_for.filter(x => x !== u.value) : [...f.use_for, u.value],
+                      }))}
+                      className={cn('text-[10px] px-2 py-1 rounded-md border transition-colors',
+                        form.use_for.includes(u.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
+                      )}>
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px] font-semibold">Active</Label>
+                <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button size="sm" onClick={handleSave} disabled={saving || !form.name}>
+                {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : <Save size={13} className="mr-1" />}
+                {editingId ? 'Update' : 'Save'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={resetForm}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Provider List */}
+      <Card className="border border-border shadow-none">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : providers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Bot size={20} className="text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No AI providers configured</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Add an API key to start using external AI models</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {providers.map(p => (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-muted/30 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    {providerIcon(p.provider)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold">{p.name}</span>
+                      <Badge className={cn('text-[9px] font-bold border-0',
+                        p.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-muted text-muted-foreground'
+                      )}>
+                        {p.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Badge className="text-[9px] font-bold border-0 bg-muted text-muted-foreground capitalize">{p.provider}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {Array.isArray(p.models) ? p.models.join(', ') : 'No models'}
+                      </span>
+                      {Array.isArray(p.use_for) && p.use_for.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          · {p.use_for.join(', ')}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">· Priority: {p.priority}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => handleTest(p)} disabled={testingId === p.id}>
+                      {testingId === p.id ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                      Test
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => startEdit(p)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive" onClick={() => handleDelete(p.id)}>
+                      <Trash2 size={11} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── AI Usage Panel ──────────────────────────────────────────────────────────
+function AiUsagePanel() {
+  const [stats, setStats] = useState<{
+    totalCalls: number;
+    totalTokensIn: number;
+    totalTokensOut: number;
+    totalCost: number;
+    avgLatencyMs: number;
+    byProvider: Record<string, { calls: number; tokens: number; cost: number }>;
+    byUseCase: Record<string, { calls: number; tokens: number; cost: number }>;
+  } | null>(null);
+  const [recent, setRecent] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(30);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [s, r] = await Promise.all([
+          Promise.resolve(supabase.rpc('1')).then(() => null).catch(() => null), // fallback
+          supabase.from('ai_usage').select('*').gte('created_at', new Date(Date.now() - days * 86400000).toISOString()).order('created_at', { ascending: false }).limit(50),
+        ]);
+        // Compute stats client-side
+        const records = (r.data ?? []) as any[];
+        const byProvider: Record<string, { calls: number; tokens: number; cost: number }> = {};
+        const byUseCase: Record<string, { calls: number; tokens: number; cost: number }> = {};
+        let totalTokensIn = 0, totalTokensOut = 0, totalCost = 0, totalLatency = 0;
+
+        for (const rec of records) {
+          totalTokensIn += rec.tokens_in ?? 0;
+          totalTokensOut += rec.tokens_out ?? 0;
+          totalCost += rec.cost_estimate ?? 0;
+          totalLatency += rec.latency_ms ?? 0;
+
+          const p = rec.provider || 'unknown';
+          if (!byProvider[p]) byProvider[p] = { calls: 0, tokens: 0, cost: 0 };
+          byProvider[p].calls++;
+          byProvider[p].tokens += (rec.tokens_in ?? 0) + (rec.tokens_out ?? 0);
+          byProvider[p].cost += rec.cost_estimate ?? 0;
+
+          const uc = rec.use_case || 'unknown';
+          if (!byUseCase[uc]) byUseCase[uc] = { calls: 0, tokens: 0, cost: 0 };
+          byUseCase[uc].calls++;
+          byUseCase[uc].tokens += (rec.tokens_in ?? 0) + (rec.tokens_out ?? 0);
+          byUseCase[uc].cost += rec.cost_estimate ?? 0;
+        }
+
+        setStats({
+          totalCalls: records.length,
+          totalTokensIn: records.reduce((s: number, r: any) => s + (r.tokens_in ?? 0), 0),
+          totalTokensOut: records.reduce((s: number, r: any) => s + (r.tokens_out ?? 0), 0),
+          totalCost: records.reduce((s: number, r: any) => s + (r.cost_estimate ?? 0), 0),
+          avgLatencyMs: records.length > 0 ? Math.round(records.reduce((s: number, r: any) => s + (r.latency_ms ?? 0), 0) / records.length) : 0,
+          byProvider,
+          byUseCase,
+        })
+        setRecent(records);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [days]);
+
+  const formatCost = (n: number) => n < 0.01 ? `<$0.01` : `$${n.toFixed(2)}`;
+  const formatTokens = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+            <Activity size={14} className="text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold">AI Usage</h3>
+            <p className="text-xs text-muted-foreground">Monitor token consumption and costs</p>
+          </div>
+        </div>
+        <select value={days} onChange={e => setDays(Number(e.target.value))}
+          className="h-8 text-xs border border-border rounded-lg px-2 bg-background">
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      ) : !stats ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Activity size={20} className="text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">No usage data yet</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <StatCard label="Total Calls" value={stats.totalCalls} icon={<Activity size={14} />} color="bg-blue-50 text-blue-600" />
+            <StatCard label="Tokens In" value={formatTokens(stats.totalTokensIn)} icon={<ArrowLeft size={14} />} color="bg-green-50 text-green-600" />
+            <StatCard label="Tokens Out" value={formatTokens(stats.totalTokensOut)} icon={<TrendingUp size={14} />} color="bg-purple-50 text-purple-600" />
+            <StatCard label="Est. Cost" value={formatCost(stats.totalCost)} icon={<CreditCard size={14} />} color="bg-amber-50 text-amber-600" />
+            <StatCard label="Avg Latency" value={`${stats.avgLatencyMs}ms`} icon={<Zap size={14} />} color="bg-cyan-50 text-cyan-600" />
+          </div>
+
+          {/* By Provider */}
+          {Object.keys(stats.byProvider).length > 0 && (
+            <Card className="border border-border shadow-none">
+              <CardContent className="p-4">
+                <h4 className="text-xs font-bold mb-3">By Provider</h4>
+                <div className="space-y-2">
+                  {Object.entries(stats.byProvider).sort((a, b) => b[1].calls - a[1].calls).map(([provider, data]) => (
+                    <div key={provider} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-[9px] font-bold border-0 bg-muted capitalize">{provider}</Badge>
+                        <span className="text-xs text-muted-foreground">{data.calls} calls</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{formatTokens(data.tokens)} tokens</span>
+                        <span className="font-semibold">{formatCost(data.cost)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* By Use Case */}
+          {Object.keys(stats.byUseCase).length > 0 && (
+            <Card className="border border-border shadow-none">
+              <CardContent className="p-4">
+                <h4 className="text-xs font-bold mb-3">By Use Case</h4>
+                <div className="space-y-2">
+                  {Object.entries(stats.byUseCase).sort((a, b) => b[1].calls - a[1].calls).map(([useCase, data]) => (
+                    <div key={useCase} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-[9px] font-bold border-0 bg-muted capitalize">{useCase}</Badge>
+                        <span className="text-xs text-muted-foreground">{data.calls} calls</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{formatTokens(data.tokens)} tokens</span>
+                        <span className="font-semibold">{formatCost(data.cost)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Calls */}
+          {recent.length > 0 && (
+            <Card className="border border-border shadow-none">
+              <CardContent className="p-0">
+                <div className="px-4 pt-4 pb-2">
+                  <h4 className="text-xs font-bold">Recent Calls</h4>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {['Time', 'Provider', 'Model', 'Use Case', 'Tokens', 'Latency', 'Status'].map(h => (
+                          <th key={h} className="text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider py-2 px-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.slice(0, 20).map((r: any) => (
+                        <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                          <td className="py-2 px-4 text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</td>
+                          <td className="py-2 px-4"><Badge className="text-[8px] font-bold border-0 bg-muted capitalize">{r.provider}</Badge></td>
+                          <td className="py-2 px-4 text-[10px] font-mono">{r.model}</td>
+                          <td className="py-2 px-4 text-[10px] capitalize">{r.use_case}</td>
+                          <td className="py-2 px-4 text-[10px]">{formatTokens((r.tokens_in ?? 0) + (r.tokens_out ?? 0))}</td>
+                          <td className="py-2 px-4 text-[10px]">{r.latency_ms}ms</td>
+                          <td className="py-2 px-4">
+                            <Badge className={cn('text-[8px] font-bold border-0',
+                              r.success ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                            )}>
+                              {r.success ? 'OK' : 'Error'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── SQL Editor Section (inline redirect) ───────────────────────────────────
+function SqlEditorSection() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate('/admin/sql-editor', { replace: true });
+  }, [navigate]);
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 size={20} className="animate-spin text-muted-foreground" />
     </div>
   );
 }
