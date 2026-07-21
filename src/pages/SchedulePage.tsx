@@ -11,7 +11,7 @@ import { Loader2, Calendar, Instagram, Youtube, Clock, Plus } from 'lucide-react
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const TIMES = ['06:00','07:00','08:00','09:00','10:00','12:00','15:00','18:00','20:00','21:00','22:00'];
 const STATUS_COLORS: Record<string, string> = {
   pending:  'bg-primary/10 text-primary',
@@ -196,7 +196,7 @@ export default function SchedulePage() {
                               : 'border-border text-muted-foreground hover:border-primary/30 hover:bg-muted/50'
                           )}
                         >
-                          {day}
+                          {day.charAt(0).toUpperCase() + day.slice(1)}
                         </button>
                       ))}
                     </div>
