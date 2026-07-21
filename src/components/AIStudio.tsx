@@ -16,7 +16,7 @@ import {
   Clock, CheckCircle2, AlertCircle, Info, FolderOpen, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useVideoGeneration } from '@/hooks/use-video-generation';
+import { useIntelligentVideo } from '@/hooks/use-intelligent-video';
 import { useImageGeneration } from '@/hooks/use-image-generation';
 
 // ── Prompt presets — cinematic, trendy, Shorts-optimised ─────────────────────
@@ -165,17 +165,21 @@ function ProgressCard({ stage, progress, taskId, status }: {
   );
 }
 
-function ResultActions({ url, type, onClear }: {
+function ResultActions({ url, type, method, onClear }: {
   url: string;
   type: 'video' | 'image';
+  method?: 'kling' | 'client';
   onClear: () => void;
 }) {
+  const label = type === 'video'
+    ? (method === 'client' ? 'Download WebM' : 'Download MP4')
+    : 'Download image';
   return (
     <div className="flex gap-2">
       <a href={url} download className="flex-1">
         <Button variant="outline" size="sm" className="w-full h-9 text-xs gap-1.5 font-medium">
           <Download size={12} />
-          {type === 'video' ? 'Download MP4' : 'Download image'}
+          {label}
         </Button>
       </a>
       <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 font-medium" onClick={onClear}>
@@ -237,7 +241,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
   };
 
   // ── Generation hooks ──────────────────────────────────────────────────────
-  const video = useVideoGeneration({
+  const video = useIntelligentVideo({
     onSave: (url) => saveToSeries(url, 'video', `AI Video — ${new Date().toLocaleDateString()}`),
   });
   const image = useImageGeneration({
@@ -336,7 +340,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
             <Clock size={12} className="text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Video generation typically takes <strong>5–10 minutes</strong>. You can navigate away — generation continues in the background and you'll be notified when done.
+              <strong>Smart generation:</strong> Tries Kling AI first for cinematic video. If unavailable, automatically creates a video from AI-generated images — no credits needed.
             </p>
           </div>
         )}
@@ -355,9 +359,30 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         {video.status === 'done' && video.url && (
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border">
-              <video src={video.url} controls className="w-full h-full" />
+              {video.url.startsWith('blob:') ? (
+                <video src={video.url} controls className="w-full h-full" />
+              ) : (
+                <video src={video.url} controls className="w-full h-full" crossOrigin="anonymous" />
+              )}
             </div>
-            <ResultActions url={video.url} type="video" onClear={video.reset} />
+            {video.method && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px]">
+                  {video.method === 'kling' ? 'Kling AI' : 'AI Images + Client-side'}
+                </Badge>
+                {video.method === 'client' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px] gap-1"
+                    onClick={video.download}
+                  >
+                    <Download size={10} />Download WebM
+                  </Button>
+                )}
+              </div>
+            )}
+            <ResultActions url={video.url} type="video" method={video.method} onClear={video.reset} />
           </div>
         )}
 

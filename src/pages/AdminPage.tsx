@@ -451,6 +451,9 @@ export default function AdminPage() {
   };
 
   const toggleAdmin = async (userId: string, current: boolean) => {
+    const user = users.find(u => u.id === userId);
+    const action = current ? 'revoke admin from' : 'grant admin to';
+    if (!confirm(`${action} ${user?.email || 'this user'}?`)) return;
     const { error } = await supabase.rpc('toggle_user_admin', { target_user_id: userId, new_admin_status: !current });
     if (error) { toast.error('Update failed'); return; }
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_admin: !current } : u));

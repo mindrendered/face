@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type FileError, type FileRejection, useDropzone } from 'react-dropzone'
 import {type SupabaseClient} from '@supabase/supabase-js'
 
@@ -190,14 +190,17 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   }, [files.length, setFiles, maxFiles])
 
   // Cleanup object URLs on unmount to prevent memory leaks
+  const previewUrlsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    files.forEach(f => {
+      const preview = (f as FileWithPreview).preview;
+      if (preview) previewUrlsRef.current.add(preview);
+    });
+  }, [files]);
   useEffect(() => {
     return () => {
-      files.forEach(f => {
-        const preview = (f as FileWithPreview).preview;
-        if (preview) {
-          URL.revokeObjectURL(preview);
-        }
-      });
+      previewUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      previewUrlsRef.current.clear();
     };
   }, []);
 
