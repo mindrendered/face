@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { generationApi } from '@/services/generation';
 import { supabase } from '@/db/supabase';
 import { toast } from 'sonner';
-import { generateVideoFromImages, generateFramesFromScript, downloadVideo, type VideoFrame } from '@/lib/video-generator';
+import { generateVideoFromImages, downloadVideo, type VideoFrame } from '@/lib/video-generator';
 
 export type VideoStatus = 'idle' | 'submitting' | 'generating_images' | 'creating_video' | 'polling' | 'done' | 'failed';
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,8 @@ import {
   Loader2, Shield, Save, RefreshCw, Users, CreditCard, Bot, Clock,
   Bell, Palette, BarChart3, AlertTriangle, Server, Trash2, Eye,
   Globe, Database, Link2, Zap, Activity, TrendingUp, Film,
-  ExternalLink, Search, ChevronDown, X, Check, Instagram, Youtube,
-  Settings, ArrowLeft, Crown, Skull, Terminal, FolderOpen,
+  Search, ChevronDown, X, Check, Instagram, Youtube,
+  Settings, ArrowLeft, Terminal, FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
