@@ -10,6 +10,7 @@ import {
   Film, Zap, FolderOpen, Link2, TrendingUp, Clock, CheckCircle2,
   AlertCircle, Loader2, Play, Download, Plus, ArrowRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   queued:             { label: 'Queued',           color: 'text-muted-foreground',  icon: <Clock size={12} /> },
@@ -42,7 +43,7 @@ function VideoRow({ video }: { video: Video }) {
         <span>{cfg.label}</span>
       </div>
       {video.status === 'ready' && video.video_url && (
-        <a href={video.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+        <a href={video.video_url} download className="shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7">
             <Download size={12} />
           </Button>
@@ -76,6 +77,8 @@ export default function DashboardPage() {
         setRecentVideos(v);
         setConnections(c.filter(c => c.is_connected));
         setCounts(cnt);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to load dashboard data');
       } finally {
         setLoading(false);
       }

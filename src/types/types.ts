@@ -5,6 +5,22 @@ export interface Profile {
   avatar_url: string | null;
   plan: 'beginner' | 'daily' | 'pro';
   videos_generated_count: number;
+  is_admin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SqlQuery {
+  id: string;
+  query: string;
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  created_by: string;
+  creator_email?: string;
+  approved_by: string | null;
+  result: unknown;
+  row_count: number | null;
+  error_message: string | null;
+  executed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +40,7 @@ export interface Series {
   auto_posting_enabled: boolean;
   instagram_account_id: string | null;
   youtube_account_id: string | null;
+  skill_id: string | null;
   posting_frequency: '3x_week' | 'daily' | 'pro';
   posting_days: string[];
   posting_time: string;
@@ -48,6 +65,7 @@ export interface Video {
   platform_posted: string[];
   scheduled_at: string | null;
   posted_at: string | null;
+  content_hash: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,9 +73,11 @@ export interface Video {
 export interface SocialConnection {
   id: string;
   user_id: string;
-  platform: 'instagram' | 'youtube';
+  platform: 'instagram' | 'youtube' | 'facebook';
   account_name: string;
   account_id: string;
+  access_token: string | null;
+  refresh_token: string | null;
   is_connected: boolean;
   connected_at: string;
   created_at: string;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { seriesApi } from '@/services/api';
@@ -16,6 +16,8 @@ import {
   Clock, CheckCircle2, AlertCircle, Info, FolderOpen, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useIntelligentVideo } from '@/hooks/use-intelligent-video';
+import { useImageGeneration } from '@/hooks/use-image-generation';
 
 // ── Prompt presets — cinematic, trendy, Shorts-optimised ─────────────────────
 export const VIDEO_PRESETS = [
@@ -43,6 +45,30 @@ export const VIDEO_PRESETS = [
     label: 'Motivation / Mindset',
     prompt: 'Powerful motivational video, 9:16 Shorts. Dramatic cinematic B-roll: storm clouds breaking into sunrise, lone mountain climber silhouette, ocean waves. Overlaid bold all-caps quote in high-contrast white on dark. Emotional pacing — slow build to fast-cut climax at 15 seconds. Colour grade: desaturated with punchy contrast. Epic orchestral music vibe. Seamless fade-to-black outro with CTA text.',
   },
+  {
+    label: 'Cyberpunk Neon',
+    prompt: 'Neon-drenched cyberpunk vertical video, 9:16. Futuristic cityscape with glowing cyan and magenta neon signs reflecting on wet streets. Holographic data streams floating in air. Smooth tracking shot through a rain-soaked alley. Electric purple and teal colour grade. Volumetric fog and god rays. Glitch micro-transitions between shots. dystopian-futuristic mood, no faces, text-safe framing.',
+  },
+  {
+    label: 'Dark Mystery',
+    prompt: 'Dark moody mystery video, 9:16 vertical. Dramatic chiaroscuro lighting with deep crushed blacks. Volumetric smoke drifting through frame. Slow crane shot revealing a shadowy environment. Selective colour pops — single red or gold element against monochrome. Noir-inspired grade with film grain. Tension-building slow pacing. Cinematic letterbox feel. Mysterious, intriguing, binge-worthy.',
+  },
+  {
+    label: 'Satisfying Process',
+    prompt: 'Oddly satisfying process video, 9:16 vertical. Macro close-up B-roll of a mesmerising process — liquid pouring, paint mixing, objects being crafted. Smooth slow-motion at 120fps. Rich saturated colours, perfect lighting. Each step flows seamlessly into the next with crossfade transitions. ASMR-style visual calmness. No faces, no text — pure visual satisfaction. Loopable ending.',
+  },
+  {
+    label: 'Epic Nature',
+    prompt: 'Breathtaking nature documentary style, 9:16 vertical. Sweeping drone shot over dramatic landscape — mountain peaks, ocean coastline, forest canopy. Golden hour lighting with volumetric rays. Rich cinematic colour grade: deep greens, warm amber highlights. Slow majestic camera movement. Particle dust in sunlight. Film-grade motion blur. Premium National Geographic aesthetic, no faces.',
+  },
+  {
+    label: 'Minimalist Quote',
+    prompt: 'Elegant minimalist quote video, 9:16. Clean solid background — soft gradient or subtle texture. Single powerful quote appears word-by-word in refined typography. Smooth fade-in animation for each word. Gentle camera drift. Muted pastel palette with one accent colour. Premium editorial aesthetic. Calm, contemplative pacing. Perfect for mindset, wellness, or productivity niches.',
+  },
+  {
+    label: 'Retro Film Grain',
+    prompt: 'Vintage retro film-style video, 9:16 vertical. Warm Kodak Portra 400 emulation — amber tones, soft highlights, faded blacks. Authentic film grain texture throughout. Light leak overlays on transitions. Gentle vignette. Handheld camera feel with natural shake. Nostalgic 80s/90s aesthetic. Sun-flare moments. Analog warmth with modern resolution. Loop-friendly pacing.',
+  },
 ];
 
 export const IMAGE_PRESETS = [
@@ -69,6 +95,22 @@ export const IMAGE_PRESETS = [
   {
     label: 'Informative Carousel',
     prompt: 'Eye-catching first slide for an Instagram carousel post, 1:1 square. Bold headline stat in oversized numerals on a cream background — "5 FACTS THAT CHANGED MY LIFE". Thin accent border in deep teal. Source citation in small monospace font at bottom. Clean editorial layout, generous padding. Highly readable on mobile. Swipe-worthy information design.',
+  },
+  {
+    label: 'Neon Glow Card',
+    prompt: 'Vibrant neon-glow social card, 9:16 vertical. Dark matte background with glowing neon tube text — electric cyan, hot pink, or acid green. Subtle neon light spill and bloom effect around text. Wet-surface reflections at bottom. Faint grid pattern in background. Futuristic, trendy, scroll-stopping. Perfect for tech, crypto, or nightlife niches. 4K sharp.',
+  },
+  {
+    label: 'Warm Lifestyle',
+    prompt: 'Warm lifestyle flatlay-style image, 1:1 square. Overhead shot aesthetic: coffee cup, notebook, succulent plant, warm wooden desk. Golden-hour side lighting with soft shadows. Warm amber and cream colour palette. Shallow depth-of-field blur on edges. Clean, aspirational, Instagram-worthy. Text space in upper third. Premium creator aesthetic.',
+  },
+  {
+    label: 'Bold Stat Card',
+    prompt: 'High-impact statistics card, 9:16 vertical. Giant number "10X" in bold sans-serif taking up 40% of frame. Dark gradient background. Thin accent line separating headline from supporting text. Clean data-visualization style. Accent colour: electric blue or vivid coral. Professional, credible, shareable. Mobile-first readable typography.',
+  },
+  {
+    label: 'Gradient Mesh',
+    prompt: 'Trending gradient mesh background, 1:1 square. Smooth flowing colour transitions — deep purple to coral to golden yellow. Organic blob shapes with soft edges. Subtle noise texture for depth. Generous negative space for text overlay. Modern, vibrant, eye-catching. Perfect for quotes, announcements, or branding. 4K resolution.',
   },
 ];
 
@@ -123,17 +165,21 @@ function ProgressCard({ stage, progress, taskId, status }: {
   );
 }
 
-function ResultActions({ url, type, onClear }: {
+function ResultActions({ url, type, method, onClear }: {
   url: string;
   type: 'video' | 'image';
+  method?: 'kling' | 'client';
   onClear: () => void;
 }) {
+  const label = type === 'video'
+    ? (method === 'client' ? 'Download WebM' : 'Download MP4')
+    : 'Download image';
   return (
     <div className="flex gap-2">
       <a href={url} download className="flex-1">
         <Button variant="outline" size="sm" className="w-full h-9 text-xs gap-1.5 font-medium">
           <Download size={12} />
-          {type === 'video' ? 'Download MP4' : 'Download image'}
+          {label}
         </Button>
       </a>
       <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 font-medium" onClick={onClear}>
@@ -194,170 +240,16 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
     }
   };
 
-  // ── Video state ──────────────────────────────────────────────────────────
-  const [videoPrompt, setVideoPrompt] = useState('');
-  const [videoAspect, setVideoAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
-  const [videoDuration, setVideoDuration] = useState<'5' | '10'>('5');
-  const [videoTaskId, setVideoTaskId] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<'idle' | 'submitting' | 'polling' | 'done' | 'failed'>('idle');
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [videoStage, setVideoStage] = useState('');
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const videoStartRef = useRef<number>(0);
+  // ── Generation hooks ──────────────────────────────────────────────────────
+  const video = useIntelligentVideo({
+    onSave: (url) => saveToSeries(url, 'video', `AI Video — ${new Date().toLocaleDateString()}`),
+  });
+  const image = useImageGeneration({
+    onSave: (url) => saveToSeries(url, 'image', `AI Image — ${new Date().toLocaleDateString()}`),
+  });
 
-  // ── Image state ──────────────────────────────────────────────────────────
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [imageTaskId, setImageTaskId] = useState<string | null>(null);
-  const [imageStatus, setImageStatus] = useState<'idle' | 'submitting' | 'polling' | 'done' | 'failed'>('idle');
-  const [imageProgress, setImageProgress] = useState(0);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const imagePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const imageStartRef = useRef<number>(0);
-
-  // ── Video generation ─────────────────────────────────────────────────────
-  const submitVideo = async () => {
-    if (!videoPrompt.trim()) return;
-    setVideoStatus('submitting');
-    setVideoProgress(5);
-    setVideoStage('Submitting task…');
-    setVideoUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('kling-omni-video-submit', {
-        body: { prompt: videoPrompt.trim(), aspect_ratio: videoAspect, duration: videoDuration },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.success === false) throw new Error(data?.error || 'Submit failed');
-      if (data?.code !== 0) throw new Error(`API error: ${data?.message}`);
-
-      const taskId: string = data.data.task_id;
-      setVideoTaskId(taskId);
-      setVideoStatus('polling');
-      setVideoStage('Generating video…');
-      setVideoProgress(10);
-      videoStartRef.current = Date.now();
-
-      videoPollRef.current = setInterval(async () => {
-        try {
-          const { data: qd, error: qe } = await supabase.functions.invoke('kling-omni-video-query', {
-            body: { task_id: taskId },
-          });
-          if (qe) return;
-          if (qd?.success === false) return; // transient error — retry next cycle
-
-          const s: string = qd?.data?.task_status;
-          const elapsed = (Date.now() - videoStartRef.current) / 1000;
-          const est = Math.min(88, Math.round((elapsed / 420) * 88));
-
-          if (s === 'succeed') {
-            clearInterval(videoPollRef.current!);
-            const url: string | null = qd.data.task_result?.videos?.[0]?.url ?? null;
-            setVideoUrl(url);
-            setVideoStatus('done');
-            setVideoProgress(100);
-            setVideoStage('Complete');
-            if (url) await saveToSeries(url, 'video', `AI Video — ${new Date().toLocaleDateString()}`);
-            else toast.success('Video generated successfully!');
-          } else if (s === 'failed') {
-            clearInterval(videoPollRef.current!);
-            setVideoStatus('failed');
-            setVideoStage('Generation failed');
-            toast.error('Video generation failed');
-          } else {
-            setVideoProgress(est);
-            setVideoStage(s === 'processing' ? 'Rendering frames…' : 'Queued…');
-          }
-        } catch { /* skip cycle on transient network error */ }
-      }, 10000);
-    } catch (e: unknown) {
-      setVideoStatus('failed');
-      setVideoStage('Submission error');
-      toast.error(e instanceof Error ? e.message : 'Submit failed');
-    }
-  };
-
-  const resetVideo = () => {
-    if (videoPollRef.current) clearInterval(videoPollRef.current);
-    setVideoStatus('idle');
-    setVideoProgress(0);
-    setVideoStage('');
-    setVideoTaskId(null);
-    setVideoUrl(null);
-    setVideoPrompt('');
-  };
-
-  // ── Image generation ─────────────────────────────────────────────────────
-  const submitImage = async () => {
-    if (!imagePrompt.trim()) return;
-    setImageStatus('submitting');
-    setImageProgress(5);
-    setImageUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('image-generation-submit', {
-        body: { contents: [{ parts: [{ text: imagePrompt.trim() }] }] },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.success === false) throw new Error(data?.error || 'Submit failed');
-      if (data?.status !== 0) throw new Error(`API error: ${data?.message}`);
-
-      const taskId: string = data.data.taskId;
-      setImageTaskId(taskId);
-      setImageStatus('polling');
-      setImageProgress(15);
-      imageStartRef.current = Date.now();
-
-      imagePollRef.current = setInterval(async () => {
-        try {
-          const { data: qd, error: qe } = await supabase.functions.invoke('image-generation-query', {
-            body: { taskId },
-          });
-          if (qe) return;
-          if (qd?.success === false) return;
-
-          const s: string = qd?.data?.status;
-          const elapsed = (Date.now() - imageStartRef.current) / 1000;
-          const est = Math.min(88, Math.round((elapsed / 120) * 88));
-
-          if (s === 'SUCCESS') {
-            clearInterval(imagePollRef.current!);
-            const url: string | null = qd.data.imageUrl ?? null;
-            setImageUrl(url);
-            setImageStatus('done');
-            setImageProgress(100);
-            if (url) await saveToSeries(url, 'image', `AI Image — ${new Date().toLocaleDateString()}`);
-            else toast.success('Image generated successfully!');
-          } else if (s === 'FAILED' || s === 'TIMEOUT') {
-            clearInterval(imagePollRef.current!);
-            setImageStatus('failed');
-            toast.error(`Image generation ${s === 'TIMEOUT' ? 'timed out' : 'failed'}`);
-          } else {
-            setImageProgress(est);
-          }
-        } catch { /* skip */ }
-      }, 7000);
-    } catch (e: unknown) {
-      setImageStatus('failed');
-      toast.error(e instanceof Error ? e.message : 'Submit failed');
-    }
-  };
-
-  const resetImage = () => {
-    if (imagePollRef.current) clearInterval(imagePollRef.current);
-    setImageStatus('idle');
-    setImageProgress(0);
-    setImageTaskId(null);
-    setImageUrl(null);
-    setImagePrompt('');
-  };
-
-  // cleanup on unmount
-  useEffect(() => () => {
-    if (videoPollRef.current) clearInterval(videoPollRef.current);
-    if (imagePollRef.current) clearInterval(imagePollRef.current);
-  }, []);
-
-  const videoActive = videoStatus === 'submitting' || videoStatus === 'polling';
-  const imageActive = imageStatus === 'submitting' || imageStatus === 'polling';
+  const videoActive = video.status === 'submitting' || video.status === 'polling';
+  const imageActive = image.status === 'submitting' || image.status === 'polling';
 
   const content = (
     <div className="space-y-4">
@@ -405,15 +297,15 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
       <TabsContent value="video" className="space-y-4 mt-0">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick prompts</Label>
-          <PresetChips presets={VIDEO_PRESETS} onSelect={setVideoPrompt} disabled={videoActive} />
+          <PresetChips presets={VIDEO_PRESETS} onSelect={video.setPrompt} disabled={videoActive} />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prompt</Label>
           <Textarea
             placeholder="Describe the video you want to generate…"
-            value={videoPrompt}
-            onChange={e => setVideoPrompt(e.target.value)}
+            value={video.prompt}
+            onChange={e => video.setPrompt(e.target.value)}
             className="text-sm min-h-[96px] px-3 resize-none"
             disabled={videoActive}
           />
@@ -422,7 +314,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Aspect ratio</Label>
-            <Select value={videoAspect} onValueChange={v => setVideoAspect(v as typeof videoAspect)} disabled={videoActive}>
+            <Select value={video.aspectRatio} onValueChange={v => video.setAspectRatio(v as typeof video.aspectRatio)} disabled={videoActive}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="9:16">9:16 — Reels / Shorts</SelectItem>
@@ -433,7 +325,7 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Duration</Label>
-            <Select value={videoDuration} onValueChange={v => setVideoDuration(v as typeof videoDuration)} disabled={videoActive}>
+            <Select value={video.duration} onValueChange={v => video.setDuration(v as typeof video.duration)} disabled={videoActive}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="5">5 seconds</SelectItem>
@@ -444,46 +336,67 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         </div>
 
         {/* Time estimate notice */}
-        {videoStatus === 'idle' && (
+        {video.status === 'idle' && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
             <Clock size={12} className="text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Video generation typically takes <strong>5–10 minutes</strong>. You can navigate away — generation continues in the background and you'll be notified when done.
+              <strong>Smart generation:</strong> Tries Kling AI first for cinematic video. If unavailable, automatically creates a video from AI-generated images — no credits needed.
             </p>
           </div>
         )}
 
         {/* Progress */}
-        {(videoActive || videoStatus === 'done' || videoStatus === 'failed') && (
+        {(videoActive || video.status === 'done' || video.status === 'failed') && (
           <ProgressCard
-            stage={videoStage}
-            progress={videoProgress}
-            taskId={videoTaskId}
-            status={videoStatus as 'submitting' | 'polling' | 'done' | 'failed'}
+            stage={video.stage}
+            progress={video.progress}
+            taskId={video.taskId}
+            status={video.status as 'submitting' | 'polling' | 'done' | 'failed'}
           />
         )}
 
         {/* Video result */}
-        {videoStatus === 'done' && videoUrl && (
+        {video.status === 'done' && video.url && (
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border">
-              <video src={videoUrl} controls className="w-full h-full" />
+              {video.url.startsWith('blob:') ? (
+                <video src={video.url} controls className="w-full h-full" />
+              ) : (
+                <video src={video.url} controls className="w-full h-full" crossOrigin="anonymous" />
+              )}
             </div>
-            <ResultActions url={videoUrl} type="video" onClear={resetVideo} />
+            {video.method && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px]">
+                  {video.method === 'kling' ? 'Kling AI' : 'AI Images + Client-side'}
+                </Badge>
+                {video.method === 'client' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px] gap-1"
+                    onClick={video.download}
+                  >
+                    <Download size={10} />Download WebM
+                  </Button>
+                )}
+              </div>
+            )}
+            <ResultActions url={video.url} type="video" method={video.method} onClear={video.reset} />
           </div>
         )}
 
-        {videoStatus === 'failed' && (
-          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={resetVideo}>
+        {video.status === 'failed' && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={video.reset}>
             <X size={12} />Clear &amp; try again
           </Button>
         )}
 
         {/* Generate / loading button */}
-        {!videoActive && videoStatus !== 'done' && (
+        {!videoActive && video.status !== 'done' && (
           <Button
-            onClick={submitVideo}
-            disabled={!videoPrompt.trim()}
+            onClick={video.submit}
+            disabled={!video.prompt.trim()}
             size="sm"
             className="w-full h-10 text-xs gap-1.5 gradient-bg border-0 text-white font-semibold"
           >
@@ -501,22 +414,22 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
       <TabsContent value="image" className="space-y-4 mt-0">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick prompts</Label>
-          <PresetChips presets={IMAGE_PRESETS} onSelect={setImagePrompt} disabled={imageActive} />
+          <PresetChips presets={IMAGE_PRESETS} onSelect={image.setPrompt} disabled={imageActive} />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prompt</Label>
           <Textarea
             placeholder="Describe the image you want to generate…"
-            value={imagePrompt}
-            onChange={e => setImagePrompt(e.target.value)}
+            value={image.prompt}
+            onChange={e => image.setPrompt(e.target.value)}
             className="text-sm min-h-[96px] px-3 resize-none"
             disabled={imageActive}
           />
         </div>
 
         {/* Time estimate notice */}
-        {imageStatus === 'idle' && (
+        {image.status === 'idle' && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
             <Info size={12} className="text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -526,35 +439,35 @@ export function AIStudio({ showSubtitle = true, withCard = true, defaultTab = 'v
         )}
 
         {/* Progress */}
-        {(imageActive || imageStatus === 'done' || imageStatus === 'failed') && (
+        {(imageActive || image.status === 'done' || image.status === 'failed') && (
           <ProgressCard
-            stage={imageStatus === 'done' ? 'Complete' : imageStatus === 'failed' ? 'Generation failed' : 'Generating image…'}
-            progress={imageProgress}
-            taskId={imageTaskId}
-            status={imageStatus as 'submitting' | 'polling' | 'done' | 'failed'}
+            stage={image.status === 'done' ? 'Complete' : image.status === 'failed' ? 'Generation failed' : 'Generating image…'}
+            progress={image.progress}
+            taskId={image.taskId}
+            status={image.status as 'submitting' | 'polling' | 'done' | 'failed'}
           />
         )}
 
         {/* Image result */}
-        {imageStatus === 'done' && imageUrl && (
+        {image.status === 'done' && image.url && (
           <div className="space-y-3">
             <div className="rounded-xl overflow-hidden border border-border bg-muted/30">
-              <img src={imageUrl} alt="Generated" className="w-full h-auto object-contain max-h-72" />
+              <img src={image.url} alt="Generated" className="w-full h-auto object-contain max-h-72" />
             </div>
-            <ResultActions url={imageUrl} type="image" onClear={resetImage} />
+            <ResultActions url={image.url} type="image" onClear={image.reset} />
           </div>
         )}
 
-        {imageStatus === 'failed' && (
-          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={resetImage}>
+        {image.status === 'failed' && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1.5 w-full font-medium" onClick={image.reset}>
             <X size={12} />Clear &amp; try again
           </Button>
         )}
 
-        {!imageActive && imageStatus !== 'done' && (
+        {!imageActive && image.status !== 'done' && (
           <Button
-            onClick={submitImage}
-            disabled={!imagePrompt.trim()}
+            onClick={image.submit}
+            disabled={!image.prompt.trim()}
             size="sm"
             className="w-full h-10 text-xs gap-1.5 gradient-bg border-0 text-white font-semibold"
           >

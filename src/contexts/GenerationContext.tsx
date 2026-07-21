@@ -4,6 +4,7 @@ import {
 import { toast } from 'sonner';
 import { videosApi } from '@/services/api';
 import { generationApi } from '@/services/generation';
+import { trackVideoGenerated } from '@/lib/analytics';
 import type { Video } from '@/types/types';
 
 interface GenerationJob {
@@ -72,6 +73,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
             generation_stage: 'Complete',
           });
           updateJob(job.videoId, { status: 'done', progress: 100, stage: 'Complete' });
+          trackVideoGenerated(job.seriesId, 'kling');
           toast.success(`✅ Video ready: ${job.seriesName}`, {
             description: 'Your video has been generated. Go to My Series to view it.',
             duration: 8000,
@@ -126,7 +128,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
         });
       }, POLL_INTERVAL);
     }
-    return () => {};
+    return () => {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    };
   }, [jobs, pollJobs]);
 
   // Cleanup on unmount

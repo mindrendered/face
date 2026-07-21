@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,16 +14,34 @@ serve(async (req: Request): Promise<Response> => {
     return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
   }
 
+  // Verify JWT — reject unauthenticated requests
+  const user = await verifyAuth(req);
+  if (!user) {
+    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   let niche: string, language: string, visualStyle: string, tone: string;
   try {
     const body = await req.json();
-    niche = body.niche || "motivational";
-    language = body.language || "English";
-    visualStyle = body.visual_style || "cinematic";
-    tone = body.tone || "engaging";
+    niche = String(body.niche || "motivational").slice(0, 100);
+    language = String(body.language || "English").slice(0, 50);
+    visualStyle = String(body.visual_style || "cinematic").slice(0, 50);
+    tone = String(body.tone || "engaging").slice(0, 50);
   } catch {
     return new Response(JSON.stringify({ success: false, error: "Invalid request body" }), {
       status: 200, // always 200 so Supabase SDK never throws FunctionsHttpError
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Reject inputs containing prompt-injection patterns
+  const suspectPattern = /ignore (all|previous|above)|system prompt|you are now|disregard/i;
+  if (suspectPattern.test(niche) || suspectPattern.test(language) || suspectPattern.test(visualStyle) || suspectPattern.test(tone)) {
+    return new Response(JSON.stringify({ success: false, error: "Invalid input" }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -35,9 +54,9 @@ serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  const systemPrompt = `You are an elite short-form video script writer specialising in viral Instagram Reels and YouTube Shorts for faceless content channels.
+  const systemPrompt = `You are the world's best viral short-form video scriptwriter. You create scripts that consistently hit 1M+ views on Instagram Reels and YouTube Shorts. You understand platform algorithms, trending formats, and psychological hooks better than anyone.
 
-Generate a high-quality, platform-optimised script for the following:
+Generate a script for:
 - Niche: ${niche}
 - Language: ${language}
 - Visual Style: ${visualStyle}
@@ -45,31 +64,64 @@ Generate a high-quality, platform-optimised script for the following:
 
 ⚠️ CRITICAL LANGUAGE RULE:
 ALL script content — narration, on-screen text, captions, [VISUAL] descriptions, CTA — MUST be written ENTIRELY in ${language}.
-If the language is "Malayalam", write all narration and text in Malayalam script (മലയാളം). Do NOT mix languages. Do NOT use any other language regardless of the niche topic.
+If the language is "Malayalam", write all narration and text in Malayalam script (മലയാളം). Do NOT mix languages.
 
-SCRIPT STRUCTURE (mandatory):
-1. HOOK (0–3 sec): Open with a shocking stat, bold claim, or intriguing question that stops the scroll. Must create instant curiosity or FOMO. Do NOT start with "Welcome" or greetings.
-2. VALUE BODY (4–55 sec): Deliver 3–5 punchy, highly informative tips, facts, or steps. Each point should be concrete, actionable, and surprising. Use simple language. Every sentence earns its place.
-3. CTA (last 5 sec): One clear, low-friction call to action — follow, save, comment a keyword, or watch next. Also in ${language}.
+═══ SCRIPT STRUCTURE ═══
 
-QUALITY RULES:
-- Script should be 60–90 seconds when read aloud at a natural pace (~150–200 words)
-- Zero filler words — every word is intentional
-- SEO-aware: naturally weave in 2–3 trending keywords for the niche (in ${language})
-- Trending framing: position content around current trends or timeless evergreen angles
-- No references to showing a face or personal identity — fully faceless
-- Include [VISUAL] scene markers that describe B-roll or on-screen text for each key point
-- Pacing notes in brackets [PAUSE] [CUT] where appropriate for editing
+Hook (0–2 sec) — THE MOST IMPORTANT PART:
+- Use ONE of these proven hook formulas:
+  • "Stop scrolling. [Shocking fact]..."
+  • "You've been lied to about [topic]..."
+  * "[Number] things nobody tells you about [topic]..."
+  • "I can't believe this actually works..."
+  • "POV: You just discovered [mind-blowing thing]..."
+- Create instant pattern interrupt — the viewer MUST stop
+- Never start with "Welcome", "Hey guys", or greetings
 
-VIDEO PROMPT RULES (for the video_prompt field — always write this in English for the AI video model):
-- Write a single cinematic AI video generation prompt in English (under 200 words)
-- Must include: aspect ratio (9:16), camera motion (e.g. slow dolly, handheld stabilised), visual style, colour grade, transition style, and mood
-- Optimised for seamless Reels/Shorts — no jarring cuts, aesthetic B-roll, text-safe centre framing
-- Specify: "smooth crossfade transitions", "consistent colour grade throughout", "no jump cuts", "30fps motion consistency"
-- If language is Malayalam, include: "on-screen text and captions in Malayalam script"
+Value Body (3–55 sec) — RETENTION ENGINE:
+- Deliver exactly 3–7 punchy points (tips, facts, steps, secrets)
+- Each point: 1 sentence setup + 1 sentence payoff
+- Use power words: "secret", "actually", "shocking", "nobody talks about", "here's the thing"
+- Create micro-hooks between points: "But wait, this next one changes everything..."
+- Every sentence must earn its place — zero filler
+
+CTA (last 3–5 sec) — CONVERSION:
+- One specific action: "Follow for Part 2", "Comment [keyword]", "Save this before it's gone"
+- Create urgency: "You'll regret not knowing this", "Share before this gets taken down"
+
+═══ VIRAL OPTIMIZATION ═══
+
+- Script: 60–90 seconds when read aloud (~150–220 words)
+- Include 2–3 trending search keywords naturally woven in
+- Position around current trends OR timeless evergreen angles
+- Fully faceless — no references to showing face or personal identity
+- Include [VISUAL] markers: "[VISUAL: Bold text overlay]", "[VISUAL: B-roll of X]"
+- Include pacing markers: [PAUSE 0.5s] [QUICK CUT] [SLOW MOTION]
+- Add on-screen text suggestions: [TEXT ON SCREEN: "keyword"]
+
+═══ VIDEO PROMPT (for AI video model — ALWAYS English) ═══
+
+Write a single cinematic prompt (under 250 words) that includes:
+- Platform: 9:16 vertical for Reels/Shorts
+- Camera: specific motion (slow dolly, tracking shot, crane up, handheld stabilised)
+- Lighting: dramatic rim lighting, golden hour backlighting, neon glow, volumetric fog
+- Color grade: specific palette (teal & orange, cyberpunk neon, desaturated film, rich warm tones)
+- Motion: 30fps consistency, smooth crossfade transitions, no jump cuts
+- Composition: text-safe centre framing, rule of thirds, depth of field
+- Style keywords: cinematic, professional, premium, trending
+- If Malayalam: include "on-screen text and captions in Malayalam script"
+
+═══ OUTPUT FORMAT ═══
 
 Respond ONLY with valid JSON (no markdown code blocks):
-{ "title": "...", "script": "...", "video_prompt": "...", "duration_estimate": 75, "hook": "...", "keywords": ["...", "...", "..."] }
+{
+  "title": "catchy, curiosity-driven title (max 60 chars)",
+  "script": "full narration script with [VISUAL] and [PAUSE] markers",
+  "video_prompt": "cinematic AI video generation prompt in English",
+  "duration_estimate": 75,
+  "hook": "the opening hook line",
+  "keywords": ["trending keyword 1", "keyword 2", "keyword 3"]
+}
 All fields except "video_prompt" must be in ${language}.`;
 
 
@@ -117,25 +169,48 @@ All fields except "video_prompt" must be in ${language}.`;
     }
   }
 
-  // Extract JSON from response
+  // Extract JSON from response — try multiple strategies
+  let scriptData: Record<string, unknown> | null = null;
+
+  // Strategy 1: Direct JSON match
   const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
+  if (jsonMatch) {
+    try { scriptData = JSON.parse(jsonMatch[0]); } catch { /* try next strategy */ }
+  }
+
+  // Strategy 2: Find JSON between ``` markers
+  if (!scriptData) {
+    const fenced = fullText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (fenced) {
+      try { scriptData = JSON.parse(fenced[1]); } catch { /* try next strategy */ }
+    }
+  }
+
+  // Strategy 3: Greedy extraction — find the outermost { ... } with balanced braces
+  if (!scriptData) {
+    const start = fullText.indexOf('{');
+    if (start !== -1) {
+      let depth = 0;
+      for (let i = start; i < fullText.length; i++) {
+        if (fullText[i] === '{') depth++;
+        if (fullText[i] === '}') depth--;
+        if (depth === 0) {
+          try { scriptData = JSON.parse(fullText.slice(start, i + 1)); } catch { /* skip */ }
+          break;
+        }
+      }
+    }
+  }
+
+  if (!scriptData || !scriptData.script || !scriptData.video_prompt) {
     return new Response(JSON.stringify({ success: false, error: "Failed to parse script response" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  try {
-    const scriptData = JSON.parse(jsonMatch[0]);
-    return new Response(JSON.stringify({ success: true, data: scriptData }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch {
-    return new Response(JSON.stringify({ success: false, error: "Invalid script JSON from LLM" }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  return new Response(JSON.stringify({ success: true, data: scriptData }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 });

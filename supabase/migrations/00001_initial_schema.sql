@@ -16,7 +16,7 @@ CREATE TABLE profiles (
 
 -- Series table
 CREATE TABLE series (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   name text NOT NULL,
   language text NOT NULL DEFAULT 'English',
@@ -39,7 +39,7 @@ CREATE TABLE series (
 
 -- Videos table
 CREATE TABLE videos (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   series_id uuid NOT NULL REFERENCES series(id) ON DELETE CASCADE,
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   title text,
@@ -61,7 +61,7 @@ CREATE TABLE videos (
 
 -- Social connections table
 CREATE TABLE social_connections (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   platform text NOT NULL CHECK (platform IN ('instagram', 'youtube')),
   account_name text NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE social_connections (
 
 -- Analytics table (daily snapshots)
 CREATE TABLE analytics (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   series_id uuid REFERENCES series(id) ON DELETE SET NULL,
   platform text NOT NULL CHECK (platform IN ('instagram', 'youtube')),
@@ -95,7 +95,7 @@ CREATE TABLE analytics (
 
 -- Scheduled posts table
 CREATE TABLE scheduled_posts (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   series_id uuid NOT NULL REFERENCES series(id) ON DELETE CASCADE,
   video_id uuid REFERENCES videos(id) ON DELETE SET NULL,
@@ -111,7 +111,7 @@ CREATE TABLE scheduled_posts (
 
 -- Notifications table
 CREATE TABLE notifications (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
   type text NOT NULL CHECK (type IN ('video_ready', 'video_failed', 'post_success', 'post_failed', 'monetization_alert', 'plan_limit')),
   title text NOT NULL,

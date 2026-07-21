@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { seriesApi, videosApi } from '@/services/api';
+import { seriesApi, videosApi, skillsApi } from '@/services/api';
 import { NICHES, LANGUAGES, VISUAL_STYLES, VOICES, MUSIC_STYLES, CAPTION_STYLES } from '@/types/types';
+import { trackSeriesCreated } from '@/lib/analytics';
 import { CheckCircle2, ChevronRight, ArrowLeft, Zap, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,6 +22,7 @@ interface SeriesForm {
   posting_frequency: '3x_week' | 'daily' | 'pro';
   posting_time: string;
   posting_days: string[];
+  skill_id: string | null;
 }
 
 const defaultForm: SeriesForm = {
@@ -35,6 +37,7 @@ const defaultForm: SeriesForm = {
   posting_frequency: 'daily',
   posting_time: '09:00',
   posting_days: ['mon', 'wed', 'fri'],
+  skill_id: null,
 };
 
 // ── Time presets ─────────────────────────────────────────────────────────────
@@ -163,7 +166,7 @@ function Step1({ form, setForm }: { form: SeriesForm; setForm: (f: SeriesForm) =
         <Input
           placeholder="e.g. Ancient civilizations, Dog training, Crypto beginner tips…"
           value={form.niche_custom}
-          onChange={e => setForm({ ...form, niche_custom: e.target.value, niche: e.target.value ? 'Custom' : form.niche })}
+          onChange={e => setForm({ ...form, niche_custom: e.target.value, niche: e.target.value ? 'Custom' : '' })}
           className="text-sm h-11 px-3"
         />
       </div>
@@ -302,7 +305,7 @@ const frequencyOptions = [
   { id: 'pro',     label: 'Max output',  desc: 'Pro — ~60 videos/month' },
 ] as const;
 
-function Step3({ form, setForm }: { form: SeriesForm; setForm: (f: SeriesForm) => void }) {
+function Step3({ form, setForm, activeSkill }: { form: SeriesForm; setForm: (f: SeriesForm) => void; activeSkill?: { name: string; system_prompt: string | null } | null }) {
   const niche = form.niche === 'Custom' ? form.niche_custom : form.niche;
   return (
     <div className="space-y-6">
@@ -322,6 +325,7 @@ function Step3({ form, setForm }: { form: SeriesForm; setForm: (f: SeriesForm) =
           { label: 'Captions', value: CAPTION_STYLES.find(c => c.id === form.caption_style)?.label || form.caption_style },
           { label: 'Post time', value: form.posting_time || '09:00' },
           { label: 'Post days', value: form.posting_days.length > 0 ? form.posting_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ') : 'Not set' },
+          ...(activeSkill ? [{ label: 'AI Skill', value: activeSkill.name }] : []),
         ].map(row => (
           <div key={row.label} className="flex items-center justify-between px-4 py-3 text-sm">
             <span className="text-muted-foreground font-medium">{row.label}</span>
@@ -361,7 +365,33 @@ export default function CreateSeriesPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<SeriesForm>(defaultForm);
   const [creating, setCreating] = useState(false);
+  const [activeSkill, setActiveSkill] = useState<{ name: string; system_prompt: string | null } | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Load skill from URL params
+  useEffect(() => {
+    const skillId = searchParams.get('skill_id');
+    if (skillId) {
+      skillsApi.get(skillId).then(skill => {
+        if (skill) {
+          setActiveSkill({ name: skill.name, system_prompt: skill.system_prompt });
+          setForm(f => ({ ...f, skill_id: skillId }));
+          // Apply skill content defaults
+          if (skill.content?.niche) setForm(f => ({ ...f, niche: String(skill.content.niche), skill_id: skillId }));
+          if (skill.content?.language) setForm(f => ({ ...f, language: String(skill.content.language), skill_id: skillId }));
+          if (skill.content?.visual_style) setForm(f => ({ ...f, visual_style: String(skill.content.visual_style), skill_id: skillId }));
+        }
+      }).catch(() => {});
+    }
+    // Also apply URL params from SkillsPage
+    const niche = searchParams.get('niche');
+    const language = searchParams.get('language');
+    const visualStyle = searchParams.get('visual_style');
+    if (niche) setForm(f => ({ ...f, niche }));
+    if (language) setForm(f => ({ ...f, language }));
+    if (visualStyle) setForm(f => ({ ...f, visual_style: visualStyle }));
+  }, [searchParams]);
 
   const steps = [Step1, Step2, Step3];
   const CurrentStep = steps[step];
@@ -391,12 +421,14 @@ export default function CreateSeriesPage() {
         auto_posting_enabled: false,
         instagram_account_id: null,
         youtube_account_id: null,
+        skill_id: form.skill_id || null,
         posting_frequency: form.posting_frequency,
         posting_days: form.posting_days,
         posting_time: form.posting_time,
       });
       // Queue first video
       await videosApi.create({ series_id: series.id, title: `${form.name} — Episode 1` });
+      trackSeriesCreated(niche || form.niche_custom || 'unknown');
       toast.success('Series created! Your first video is being queued.');
       navigate(`/series/${series.id}`);
     } catch (err: unknown) {
@@ -411,7 +443,7 @@ export default function CreateSeriesPage() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-10">
         {step > 0 && (
-          <Button variant="ghost" size="icon" onClick={() => setStep(s => s - 1)} className="h-9 w-9 border border-border shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => setStep(s => s - 1)} className="h-9 w-9 border border-border shrink-0" aria-label="Go back">
             <ArrowLeft size={16} />
           </Button>
         )}
@@ -424,7 +456,10 @@ export default function CreateSeriesPage() {
 
       {/* Step content */}
       <div className="mb-10">
-        <CurrentStep form={form} setForm={setForm} />
+        {step === 2
+          ? <Step3 form={form} setForm={setForm} activeSkill={activeSkill} />
+          : <CurrentStep form={form} setForm={setForm} />
+        }
       </div>
 
       {/* Navigation */}

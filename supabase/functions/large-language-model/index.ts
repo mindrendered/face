@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,12 +14,30 @@ serve(async (req: Request): Promise<Response> => {
     return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
   }
 
+  // Verify JWT — reject unauthenticated requests
+  const user = await verifyAuth(req);
+  if (!user) {
+    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   let contents: unknown[];
   try {
     const body = await req.json();
     contents = body.contents;
     if (!Array.isArray(contents) || contents.length === 0) {
       throw new Error("Missing or empty contents");
+    }
+    // Limit array size to prevent excessive API costs
+    if (contents.length > 20) {
+      throw new Error("Contents array too large (max 20 items)");
+    }
+    // Limit total text size to ~100KB
+    const totalSize = JSON.stringify(contents).length;
+    if (totalSize > 100_000) {
+      throw new Error("Contents payload too large (max 100KB)");
     }
   } catch {
     return new Response(JSON.stringify({ error: "Invalid request body" }), {

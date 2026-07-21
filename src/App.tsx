@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import IntersectObserver from '@/components/common/IntersectObserver';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -7,6 +7,8 @@ import { GenerationProvider } from '@/contexts/GenerationContext';
 import { ProtectedRoute } from '@/components/layouts/ProtectedRoute';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { routes } from './routes';
+
+const NotFound = React.lazy(() => import('./pages/NotFound'));
 
 const App: React.FC = () => {
   return (
@@ -17,7 +19,7 @@ const App: React.FC = () => {
         <Routes>
           {routes.map((route, index) => (
             <Route
-              key={index}
+              key={route.path}
               path={route.path}
               element={
                 route.public ? (
@@ -30,7 +32,7 @@ const App: React.FC = () => {
               }
             />
           ))}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
         </Routes>
         <Toaster />
         </GenerationProvider>
