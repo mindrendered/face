@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head><title>Video Test</title></head>
+<body style="background:#000;color:#fff;font-family:system-ui;padding:2rem">
+<h2>Video Generator Test</h2>
+<div id="status">Click to test</div>
+<div id="scenes" style="display:flex;gap:10px;margin:1rem 0"></div>
+<video id="vid" controls width="300" style="display:none;margin:1rem 0"></video>
+<canvas id="cv" width="576" height="1024" style="display:none"></canvas>
+<button onclick="runTest()" style="padding:10px 20px;background:#22c55e;border:none;color:#000;font-weight:bold;border-radius:8px;cursor:pointer">Generate Video</button>
+<script>
+const SCENES = [
+  "A fit person doing intense workout in dramatic gym lighting",
+  "Close up of determined face during exercise, dramatic lighting",
+  "Person running on treadmill at sunrise, golden hour lighting",
+  "Healthy food and fitness equipment, vibrant colors",
+  "Person celebrating fitness achievement, epic lighting"
+];
+let imgs = [];
+
+async function runTest() {
+  const st = document.getElementById('status');
+  const box = document.getElementById('scenes');
+  box.innerHTML = '';
+  
+  // Load images
+  for (let i = 0; i < SCENES.length; i++) {
+    st.textContent = 'Loading image ' + (i+1) + '/5...';
+    const div = document.createElement('div');
+    div.style.cssText = 'width:100px;height:178px;background:#222;border-radius:8px;overflow:hidden;position:relative';
+    div.innerHTML = '<div style="padding:10px;color:#666;font-size:10px">Loading...</div>';
+    box.appendChild(div);
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise(r => {
+      img.onload = () => { imgs[i] = img; div.innerHTML = '<img style="width:100%;height:100%;object-fit:cover" src="' + img.src + '"><div style="position:absolute;bottom:2px;right:2px;background:#22c55e;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:8px">✓</div>'; r(); };
+      img.onerror = () => { div.innerHTML = '<div style="color:red;font-size:10px">Failed</div>'; r(); };
+      img.src = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(SCENES[i]) + '?width=576&height=1024&nologo=true&seed=' + i;
+    });
+    await new Promise(r => setTimeout(r, 500));
+  }
+  
+  st.textContent = 'Creating video...';
+  
+  // Create video
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const stream = canvas.captureStream(30);
+  const rec = new MediaRecorder(stream, { mimeType: 'video/webm', videoBitsPerSecond: 3000000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  const done = new Promise(r => rec.onstop = () => r(new Blob(chunks, {type:'video/webm'})));
+  rec.start();
+  
+  for (let i = 0; i < imgs.length; i++) {
+    if (!imgs[i]) continue;
+    st.textContent = 'Rendering scene ' + (i+1) + '/5...';
+    const frames = 90; // 3 sec at 30fps
+    const trans = 15; // 0.5 sec transition
+    for (let f = 0; f < frames - trans; f++) {
+      drawFit(ctx, imgs[i], 576, 1024);
+      await new Promise(r => setTimeout(r, 33));
+    }
+    if (i < imgs.length - 1 && imgs[i+1]) {
+      for (let f = 0; f < trans; f++) {
+        ctx.globalAlpha = 1 - f/trans;
+        drawFit(ctx, imgs[i], 576, 1024);
+        ctx.globalAlpha = f/trans;
+        drawFit(ctx, imgs[i+1], 576, 1024);
+        ctx.globalAlpha = 1;
+        await new Promise(r => setTimeout(r, 33));
+      }
+    }
+  }
+  rec.stop();
+  const blob = await done;
+  
+  const vid = document.getElementById('vid');
+  vid.src = URL.createObjectURL(blob);
+  vid.style.display = 'block';
+  st.textContent = 'Done! Video size: ' + Math.round(blob.size/1024) + 'KB';
+  
+  // Download link
+  const a = document.createElement('a');
+  a.href = vid.src;
+  a.download = 'ai-video.webm';
+  a.textContent = 'Download Video';
+  a.style.cssText = 'display:inline-block;margin:1rem 0;padding:10px 20px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold';
+  document.body.appendChild(a);
+}
+
+function drawFit(ctx, img, w, h) {
+  const s = Math.max(w/img.width, h/img.height);
+  const x = (w - img.width*s)/2;
+  const y = (h - img.height*s)/2;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, x, y, img.width*s, img.height*s);
+}
+</script>
+</body>
+</html>

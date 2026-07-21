@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body style="background:#000;color:#fff;font-family:system-ui;padding:2rem">
+<h2>Button Test</h2>
+<div id="log" style="background:#1a1a1a;padding:1rem;border-radius:8px;margin:1rem 0;min-height:100px;font-family:monospace;font-size:12px"></div>
+<button id="btn" style="padding:10px 20px;background:#22c55e;border:none;color:#000;font-weight:bold;border-radius:8px;cursor:pointer">Click Me</button>
+<script>
+function log(msg) {
+  document.getElementById('log').innerHTML += msg + '<br>';
+  console.log(msg);
+}
+log('Script loaded');
+log('MediaRecorder: ' + (typeof MediaRecorder !== 'undefined' ? 'SUPPORTED' : 'NOT SUPPORTED'));
+
+document.getElementById('btn').addEventListener('click', function() {
+  log('Button clicked at ' + new Date().toLocaleTimeString());
+  
+  // Test if canvas works
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 100; cv.height = 100;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = 'red';
+    ctx.fillRect(0, 0, 100, 100);
+    log('Canvas: OK');
+  } catch(e) {
+    log('Canvas ERROR: ' + e.message);
+  }
+  
+  // Test if MediaRecorder works
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 100; cv.height = 100;
+    const stream = cv.captureStream(30);
+    const rec = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    log('MediaRecorder: CREATED');
+    rec.start();
+    log('MediaRecorder: STARTED');
+    rec.stop();
+    log('MediaRecorder: STOPPED');
+  } catch(e) {
+    log('MediaRecorder ERROR: ' + e.message);
+  }
+  
+  // Test image loading
+  log('Loading test image...');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    log('Image loaded: ' + img.width + 'x' + img.height);
+  };
+  img.onerror = function() {
+    log('Image FAILED to load');
+  };
+  img.src = '/scenes/scene0.jpg';
+});
+log('Event listener attached');
+</script>
+</body>
+</html>

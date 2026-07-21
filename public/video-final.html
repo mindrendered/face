@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Video Generator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui; background: #0a0a0a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.85rem; }
+    .status { color: #22c55e; margin-bottom: 1.5rem; font-size: 0.9rem; font-weight: 600; }
+    .scenes { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; justify-content: center; }
+    .scene { width: 110px; height: 196px; border-radius: 8px; overflow: hidden; background: #1a1a1a; border: 2px solid #333; }
+    .scene img { width: 100%; height: 100%; object-fit: cover; }
+    .scene.active { border-color: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.3); }
+    .progress-bar { width: 300px; height: 6px; background: #222; border-radius: 3px; margin-bottom: 1.5rem; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #3b82f6); border-radius: 3px; transition: width 0.2s; }
+    #videoContainer { display: none; margin-bottom: 1rem; }
+    #videoContainer video { width: 270px; height: 480px; border-radius: 12px; background: #000; }
+    .buttons { display: flex; gap: 1rem; }
+    button { padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; border: none; }
+    .btn-generate { background: #22c55e; color: #000; }
+    .btn-generate:hover { background: #16a34a; }
+    .btn-generate:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .btn-download { background: #3b82f6; color: #fff; display: none; }
+    .btn-download:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <h1>🎬 AI Video Generator</h1>
+  <p class="subtitle">5 shocking reasons you're not losing belly fat</p>
+  <p class="status" id="status">Click Generate to start</p>
+
+  <div class="scenes" id="scenes">
+    <div class="scene"><img src="/scenes/scene0.jpg"></div>
+    <div class="scene"><img src="/scenes/scene1.jpg"></div>
+    <div class="scene"><img src="/scenes/scene2.jpg"></div>
+    <div class="scene"><img src="/scenes/scene3.jpg"></div>
+    <div class="scene"><img src="/scenes/scene4.jpg"></div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="fill"></div></div>
+
+  <div id="videoContainer"><video id="video" controls></video></div>
+
+  <div class="buttons">
+    <button class="btn-generate" id="genBtn" onclick="generate()">Generate Video</button>
+    <button class="btn-download" id="dlBtn" onclick="download()">Download WebM</button>
+  </div>
+
+  <canvas id="cv" width="576" height="1024" style="display:none"></canvas>
+
+  <script>
+    const SRC = ['/scenes/scene0.jpg','/scenes/scene1.jpg','/scenes/scene2.jpg','/scenes/scene3.jpg','/scenes/scene4.jpg'];
+    const W = 576, H = 1024, FPS = 30, MS_PER_FRAME = 1000/FPS;
+    const SCENE_MS = 3000, TRANSITION_MS = 500;
+    let imgs = [], blob = null;
+
+    function set(s) { document.getElementById('status').textContent = s; }
+    function setPct(p) { document.getElementById('fill').style.width = p + '%'; }
+    function highlight(i) {
+      document.querySelectorAll('.scene').forEach((el,j) => el.classList.toggle('active', j===i));
+    }
+
+    async function generate() {
+      const btn = document.getElementById('genBtn');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+
+      // Load images
+      for (let i = 0; i < SRC.length; i++) {
+        set(`Loading scene ${i+1}/5...`);
+        highlight(i);
+        setPct((i/SRC.length)*40);
+        const img = new Image();
+        await new Promise(r => {
+          img.onload = () => { imgs[i] = img; r(); };
+          img.onerror = () => r();
+          img.src = SRC[i];
+        });
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      // Render video
+      set('Creating video...');
+      setPct(45);
+      const cv = document.getElementById('cv');
+      const ctx = cv.getContext('2d');
+      const stream = cv.captureStream(FPS);
+      const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 4000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      const done = new Promise(r => rec.onstop = () => r(new Blob(chunks, {type:'video/webm'})));
+      rec.start();
+
+      const totalFrames = SRC.length * Math.floor(SCENE_MS/MS_PER_FRAME);
+      let fc = 0;
+
+      for (let i = 0; i < imgs.length; i++) {
+        if (!imgs[i]) continue;
+        set(`Rendering scene ${i+1}/5...`);
+        highlight(i);
+        const staticFrames = Math.floor((SCENE_MS - TRANSITION_MS)/MS_PER_FRAME);
+        const transFrames = Math.floor(TRANSITION_MS/MS_PER_FRAME);
+
+        for (let f = 0; f < staticFrames; f++) {
+          draw(ctx, imgs[i]); fc++;
+          setPct(45 + (fc/totalFrames)*55);
+          await new Promise(r => setTimeout(r, MS_PER_FRAME));
+        }
+        if (i < imgs.length-1 && imgs[i+1]) {
+          for (let f = 0; f < transFrames; f++) {
+            ctx.globalAlpha = 1 - f/transFrames;
+            draw(ctx, imgs[i]);
+            ctx.globalAlpha = f/transFrames;
+            draw(ctx, imgs[i+1]);
+            ctx.globalAlpha = 1;
+            fc++;
+            setPct(45 + (fc/totalFrames)*55);
+            await new Promise(r => setTimeout(r, MS_PER_FRAME));
+          }
+        }
+      }
+      rec.stop();
+      blob = await done;
+
+      // Show result
+      const vid = document.getElementById('video');
+      vid.src = URL.createObjectURL(blob);
+      document.getElementById('videoContainer').style.display = 'block';
+      document.getElementById('dlBtn').style.display = 'inline-block';
+      set(`✅ Done! ${(blob.size/1024).toFixed(0)}KB video created`);
+      setPct(100);
+      btn.disabled = false;
+      btn.textContent = 'Generate Again';
+    }
+
+    function draw(ctx, img) {
+      const s = Math.max(W/img.width, H/img.height);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, (W-img.width*s)/2, (H-img.height*s)/2, img.width*s, img.height*s);
+    }
+
+    function download() {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'fitness-video.webm';
+      a.click();
+    }
+  </script>
+</body>
+</html>
